@@ -71,8 +71,11 @@ print("Running — press Q to quit")
 
 try:
     while True:
-        if zed.grab(runtime_params) != sl.ERROR_CODE.SUCCESS:
-            continue
+        while True:
+            err = zed.grab(runtime_params)
+            if err != sl.ERROR_CODE.SUCCESS:
+                print(f"Grab error: {err}")
+                continue
 
         zed.retrieve_image(image, sl.VIEW.LEFT)
         frame     = image.get_data()
