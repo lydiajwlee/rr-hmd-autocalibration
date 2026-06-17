@@ -1,4 +1,5 @@
 import pyzed.sl as sl
+import cv2
 
 CAMERA_IP   = "192.168.50.3"
 CAMERA_PORT = 30000
@@ -13,13 +14,25 @@ if status != sl.ERROR_CODE.SUCCESS:
     print(f"Failed to connect: {status}")
     exit()
 
-print("ZED connected successfully!")
+print("ZED connected — press Q to quit")
 
-calib = zed.get_camera_information().camera_configuration.calibration_parameters
-print(f"fx: {calib.left_cam.fx}")
-print(f"fy: {calib.left_cam.fy}")
-print(f"cx: {calib.left_cam.cx}")
-print(f"cy: {calib.left_cam.cy}")
+image = sl.Mat()
+runtime_params = sl.RuntimeParameters()
 
+while True:
+    err = zed.grab(runtime_params)
+    if err != sl.ERROR_CODE.SUCCESS:
+        print(f"Grab error: {err}")
+        continue
+
+    zed.retrieve_image(image, sl.VIEW.LEFT)
+    frame = image.get_data()
+    frame_bgr = cv2.cvtColor(frame, cv2.COLOR_BGRA2BGR)
+
+    cv2.imshow("ZED Live", frame_bgr)
+
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
+
+cv2.destroyAllWindows()
 zed.close()
-print("ZED closed.")
