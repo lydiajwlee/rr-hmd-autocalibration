@@ -2,6 +2,8 @@ import pyzed.sl as sl
 import cv2
 import numpy as np
 from scipy.spatial.transform import Rotation
+import time
+import os
 
 # ── CONFIG ──────────────────────────────────────────────────────────────────
 ARUCO_DICT  = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_6X6_250)
@@ -106,7 +108,7 @@ try:
                     cv2.drawFrameAxes(frame_bgr, K, dist, rvec, T[:3, 3], 0.05)
                     cv2.putText(frame_bgr, f"HMD (ID {HMD_ID})",
                                 corners[i][0][0].astype(int),
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 0, 0), 2)
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (242, 255, 0), 2)
 
         if anchor_T is not None and hmd_T is not None:
             rel = relative_pose(anchor_T, hmd_T)
@@ -140,8 +142,15 @@ try:
 
         cv2.imshow("Relative Pose Test", frame_bgr)
 
-        if cv2.waitKey(1) & 0xFF == ord('q'):
+
+        key = cv2.waitKey(1) & 0xFF
+        if key == ord('q'):
             break
+        elif key == ord(' '):
+            os.makedirs("tests/relative_pose/captures", exist_ok=True)
+            filename = f"tests/relative_pose/captures/capture_{int(time.time())}.png"
+            cv2.imwrite(filename, frame_bgr)
+            print(f"Screenshot saved to {filename}")
 
 finally:
     cv2.destroyAllWindows()
