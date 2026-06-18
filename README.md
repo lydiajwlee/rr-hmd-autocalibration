@@ -99,3 +99,6 @@ python tests/test_heart.py
 python tests/relative_pose/test_relative_pose.py
 ```
 Press `SPACE` to capture screenshot. Press `Q` to quit.
+
+---
+*README last updated: June 18, 2026*
