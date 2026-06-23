@@ -135,8 +135,9 @@ try:
             r = Rotation.from_matrix(hmd_world_rot)
             roll, pitch, yaw = r.as_euler('xyz', degrees=True)
 
+            pos_in = hmd_world_pos / 0.0254
             cv2.putText(frame_bgr,
-                f"HMD world pos: ({hmd_world_pos[0]:.2f}, {hmd_world_pos[1]:.2f}, {hmd_world_pos[2]:.2f})m",
+                f"HMD world pos: ({pos_in[0]:.2f}, {pos_in[1]:.2f}, {pos_in[2]:.2f}) in",
                 (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
             cv2.putText(frame_bgr,
                 f"HMD world rot: roll={roll:.1f} pitch={pitch:.1f} yaw={yaw:.1f}",
