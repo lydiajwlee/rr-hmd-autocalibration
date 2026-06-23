@@ -156,7 +156,8 @@ try:
             cv2.putText(frame_bgr, "HMD not detected",
                 (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 165, 255), 2)
 
-        cv2.imshow("Relative Pose Test", frame_bgr)
+        display = cv2.resize(frame_bgr, (960, 540))  # 절반 크기
+        cv2.imshow("Relative Pose Test", display)
 
         key = cv2.waitKey(1) & 0xFF
         if key == ord('q'):
