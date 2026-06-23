@@ -1,11 +1,14 @@
 import pyzed.sl as sl
 import cv2
 import numpy as np
+from pose_calculator import anchor_to_hmd_pose
 
 # ── CONFIG ──────────────────────────────────────────────────────────────────
 ARUCO_DICT  = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_6X6_250)
 DETECTOR    = cv2.aruco.ArucoDetector(ARUCO_DICT, cv2.aruco.DetectorParameters())
-MARKER_ID   = 0
+
+ANCHOR_ID   = 100   # Fixed anchor marker
+HMD_ID      = 0     # HMD marker
 MARKER_SIZE = 0.1
 
 CAMERA_IP   = "192.168.50.3"
@@ -29,29 +32,24 @@ def get_marker_object_points(size):
         [-half, -half, 0]
     ], dtype=np.float32)
 
-def detect_pose(gray, K, dist):
-    corners, ids, _ = DETECTOR.detectMarkers(gray)
-
-    if ids is None:
-        return None, None, None
-
-    for i, marker_id in enumerate(ids.flatten()):
-        if marker_id != MARKER_ID:
-            continue
-
-        obj_points = get_marker_object_points(MARKER_SIZE)
-        img_points = corners[i].reshape(4, 2)
-
-        success, rvec, tvec = cv2.solvePnP(obj_points, img_points, K, dist)
-        if not success:
-            return None, None, None
-
-        center = corners[i][0].mean(axis=0).astype(int)
-        return rvec, tvec, center
-
-    return None, None, None
+def get_pose(corners, K, dist):
+    """Get 4x4 transform matrix from marker corners."""
+    obj_points = get_marker_object_points(MARKER_SIZE)
+    img_points = corners.reshape(4, 2)
+    success, rvec, tvec = cv2.solvePnP(obj_points, img_points, K, dist)
+    if not success:
+        return None
+    R, _ = cv2.Rodrigues(rvec)
+    T = np.eye(4)
+    T[:3, :3] = R
+    T[:3, 3]  = tvec.flatten()
+    return T
 
 def run(on_pose_detected):
+    """
+    on_pose_detected: callback called when both markers detected
+    receives rel_T (4x4 transform matrix of HMD in anchor space)
+    """
     init_params = sl.InitParameters()
     init_params.set_from_stream(CAMERA_IP, CAMERA_PORT)
 
@@ -65,7 +63,7 @@ def run(on_pose_detected):
     K, dist = get_K_from_zed(zed)
     print(f"[aruco_detector] ZED connected.")
 
-    image = sl.Mat()
+    image          = sl.Mat()
     runtime_params = sl.RuntimeParameters()
 
     try:
@@ -74,16 +72,28 @@ def run(on_pose_detected):
                 continue
 
             zed.retrieve_image(image, sl.VIEW.LEFT)
-            frame = image.get_data()
+            frame     = image.get_data()
             frame_bgr = cv2.cvtColor(frame, cv2.COLOR_BGRA2BGR)
-            gray = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2GRAY)
+            gray      = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2GRAY)
 
-            rvec, tvec, center = detect_pose(gray, K, dist)
+            corners, ids, _ = DETECTOR.detectMarkers(gray)
 
-            if rvec is not None:
-                # Only for heart test — comment out when not testing
-                on_pose_detected(rvec, tvec, frame_bgr, center)
-                # on_pose_detected(rvec, tvec)  # original
+            anchor_T = None
+            hmd_T    = None
+
+            if ids is not None:
+                for i, marker_id in enumerate(ids.flatten()):
+                    T = get_pose(corners[i], K, dist)
+                    if T is None:
+                        continue
+                    if marker_id == ANCHOR_ID:
+                        anchor_T = T
+                    elif marker_id == HMD_ID:
+                        hmd_T = T
+
+            if anchor_T is not None and hmd_T is not None:
+                rel_T = anchor_to_hmd_pose(anchor_T, hmd_T)
+                on_pose_detected(rel_T)
 
             cv2.imshow("ZED ArUco", frame_bgr)
             if cv2.waitKey(1) & 0xFF == ord('q'):
