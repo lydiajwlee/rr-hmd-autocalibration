@@ -9,13 +9,21 @@ import os
 ARUCO_DICT  = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_6X6_250)
 DETECTOR    = cv2.aruco.ArucoDetector(ARUCO_DICT, cv2.aruco.DetectorParameters())
 
-ANCHOR_ID   = 100   # Fixed anchor marker
+ANCHOR_ID   = 101   # Fixed anchor marker
 HMD_ID      = 0     # HMD marker
 
-MARKER_SIZE = 0.1   # meters — update to actual printed size
+MARKER_SIZE = 0.1   # meters
 
 CAMERA_IP   = "192.168.50.3"
 CAMERA_PORT = 30000
+
+# Fixed anchor world poses (Unity convention, meters)
+ANCHOR_WORLD_POSES = {
+    101: {
+        "position": np.array([-0.9398, 0.8700, 0.0]),
+        "rotation": Rotation.from_euler('y', -90, degrees=True).as_matrix()
+    }
+}
 # ────────────────────────────────────────────────────────────────────────────
 
 def get_K_from_zed(zed):
@@ -69,7 +77,7 @@ print(f"ZED connected.\n")
 image          = sl.Mat()
 runtime_params = sl.RuntimeParameters()
 
-print("Running — press Q to quit")
+print("Running — press SPACE to capture, Q to quit")
 
 try:
     while True:
@@ -112,23 +120,30 @@ try:
 
         if anchor_T is not None and hmd_T is not None:
             rel = relative_pose(anchor_T, hmd_T)
+            rel_pos = rel[:3, 3]
+            rel_rot = rel[:3, :3]
 
-            # Position
-            pos = rel[:3, 3]
+            # Apply anchor world pose
+            anchor_world_pos = ANCHOR_WORLD_POSES[ANCHOR_ID]["position"]
+            anchor_world_rot = ANCHOR_WORLD_POSES[ANCHOR_ID]["rotation"]
 
-            # Rotation matrix → euler angles via scipy
-            r = Rotation.from_matrix(rel[:3, :3])
+            # HMD world space position and rotation
+            hmd_world_pos = anchor_world_pos + anchor_world_rot @ rel_pos
+            hmd_world_rot = anchor_world_rot @ rel_rot
+
+            # Display euler angles for readability
+            r = Rotation.from_matrix(hmd_world_rot)
             roll, pitch, yaw = r.as_euler('xyz', degrees=True)
 
             cv2.putText(frame_bgr,
-                f"pos: ({pos[0]:.2f}, {pos[1]:.2f}, {pos[2]:.2f})m",
+                f"HMD world pos: ({hmd_world_pos[0]:.2f}, {hmd_world_pos[1]:.2f}, {hmd_world_pos[2]:.2f})m",
                 (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
             cv2.putText(frame_bgr,
-                f"roll: {roll:.1f} pitch: {pitch:.1f} yaw: {yaw:.1f} deg",
+                f"HMD world rot: roll={roll:.1f} pitch={pitch:.1f} yaw={yaw:.1f}",
                 (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
 
-            print(f"pos: ({pos[0]:.3f}, {pos[1]:.3f}, {pos[2]:.3f}) | "
-                  f"roll: {roll:.1f} pitch: {pitch:.1f} yaw: {yaw:.1f}")
+            print(f"HMD world pos: ({hmd_world_pos[0]:.3f}, {hmd_world_pos[1]:.3f}, {hmd_world_pos[2]:.3f})")
+            print(f"HMD world rot: roll={roll:.1f} pitch={pitch:.1f} yaw={yaw:.1f}")
 
         elif anchor_T is None and hmd_T is None:
             cv2.putText(frame_bgr, "No markers detected",
@@ -141,7 +156,6 @@ try:
                 (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 165, 255), 2)
 
         cv2.imshow("Relative Pose Test", frame_bgr)
-
 
         key = cv2.waitKey(1) & 0xFF
         if key == ord('q'):
