@@ -47,13 +47,26 @@ def get_pose(corners, K, dist):
     """Get 4x4 transform matrix from marker corners."""
     obj_points = get_marker_object_points(MARKER_SIZE)
     img_points = corners.reshape(4, 2)
-    success, rvec, tvec = cv2.solvePnP(obj_points, img_points, K, dist)
+
+    # solve PnP
+    success, rvec, tvec = cv2.solvePnP(
+        obj_points, 
+        img_points,
+        K, 
+        dist)
+
     if not success:
         return None
+
     R, _ = cv2.Rodrigues(rvec)
     T = np.eye(4)
     T[:3, :3] = R
     T[:3, 3]  = tvec.flatten()
+
+    print(f"Rotation vector:\n{rvec.ravel()}")
+    print(f"\nTranslation vector:\n{tvec.ravel()}")
+    print(f"\nRotation matrix:\n{R}")
+
     return T
 
 def relative_pose(anchor_T, hmd_T):
