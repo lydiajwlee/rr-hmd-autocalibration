@@ -131,20 +131,16 @@ try:
             hmd_world_pos = anchor_world_pos + anchor_world_rot @ rel_pos
             hmd_world_rot = anchor_world_rot @ rel_rot
 
-            # Display euler angles for readability
-            r = Rotation.from_matrix(hmd_world_rot)
-            roll, pitch, yaw = r.as_euler('xyz', degrees=True)
+            # Convert to quaternion for Unity
+            qx, qy, qz, qw = Rotation.from_matrix(hmd_world_rot).as_quat()
 
             pos_in = hmd_world_pos / 0.0254
             cv2.putText(frame_bgr,
                 f"HMD world pos: ({pos_in[0]:.2f}, {pos_in[1]:.2f}, {pos_in[2]:.2f}) in",
                 (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
-            cv2.putText(frame_bgr,
-                f"HMD world rot: roll={roll:.1f} pitch={pitch:.1f} yaw={yaw:.1f}",
-                (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
 
             print(f"HMD world pos: ({hmd_world_pos[0]:.3f}, {hmd_world_pos[1]:.3f}, {hmd_world_pos[2]:.3f})")
-            print(f"HMD world rot: roll={roll:.1f} pitch={pitch:.1f} yaw={yaw:.1f}")
+            print(f"HMD world quat: ({qx:.3f}, {qy:.3f}, {qz:.3f}, {qw:.3f})")
 
         elif anchor_T is None and hmd_T is None:
             cv2.putText(frame_bgr, "No markers detected",
@@ -156,9 +152,8 @@ try:
             cv2.putText(frame_bgr, "HMD not detected",
                 (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 165, 255), 2)
 
-        display = cv2.resize(frame_bgr, (960, 540))  # 절반 크기
+        display = cv2.resize(frame_bgr, (960, 540))
         cv2.imshow("Relative Pose Test", display)
-
 
         key = cv2.waitKey(1) & 0xFF
         if key == ord('q'):

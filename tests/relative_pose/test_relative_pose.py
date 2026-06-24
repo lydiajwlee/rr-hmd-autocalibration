@@ -12,7 +12,7 @@ DETECTOR    = cv2.aruco.ArucoDetector(ARUCO_DICT, cv2.aruco.DetectorParameters()
 ANCHOR_ID   = 100   # Fixed anchor marker
 HMD_ID      = 0     # HMD marker
 
-MARKER_SIZE = 0.1   # meters — update to actual printed size
+MARKER_SIZE = 0.1   # meters
 
 CAMERA_IP   = "192.168.50.3"
 CAMERA_PORT = 30000
@@ -69,7 +69,7 @@ print(f"ZED connected.\n")
 image          = sl.Mat()
 runtime_params = sl.RuntimeParameters()
 
-print("Running — press Q to quit")
+print("Running — press SPACE to capture, Q to quit")
 
 try:
     while True:
@@ -112,23 +112,13 @@ try:
 
         if anchor_T is not None and hmd_T is not None:
             rel = relative_pose(anchor_T, hmd_T)
-
-            # Position
             pos = rel[:3, 3]
-
-            # Rotation matrix → euler angles via scipy
-            r = Rotation.from_matrix(rel[:3, :3])
-            roll, pitch, yaw = r.as_euler('xyz', degrees=True)
 
             cv2.putText(frame_bgr,
                 f"pos: ({pos[0]:.2f}, {pos[1]:.2f}, {pos[2]:.2f})m",
                 (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
-            cv2.putText(frame_bgr,
-                f"roll: {roll:.1f} pitch: {pitch:.1f} yaw: {yaw:.1f} deg",
-                (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
 
-            print(f"pos: ({pos[0]:.3f}, {pos[1]:.3f}, {pos[2]:.3f}) | "
-                  f"roll: {roll:.1f} pitch: {pitch:.1f} yaw: {yaw:.1f}")
+            print(f"pos: ({pos[0]:.3f}, {pos[1]:.3f}, {pos[2]:.3f})")
 
         elif anchor_T is None and hmd_T is None:
             cv2.putText(frame_bgr, "No markers detected",
@@ -141,7 +131,6 @@ try:
                 (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 165, 255), 2)
 
         cv2.imshow("Relative Pose Test", frame_bgr)
-
 
         key = cv2.waitKey(1) & 0xFF
         if key == ord('q'):
