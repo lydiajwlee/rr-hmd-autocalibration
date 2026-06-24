@@ -21,7 +21,7 @@ CAMERA_PORT = 30000
 ANCHOR_WORLD_POSES = {
     101: {
         "position": np.array([-0.9398, 0.8700, 0.0]),
-        "rotation": Rotation.from_euler('y', -90, degrees=True).as_matrix()
+        "rotation": Rotation.from_euler('y', 90, degrees=True).as_matrix()
     }
 }
 # ────────────────────────────────────────────────────────────────────────────
@@ -158,6 +158,7 @@ try:
 
         display = cv2.resize(frame_bgr, (960, 540))  # 절반 크기
         cv2.imshow("Relative Pose Test", display)
+
 
         key = cv2.waitKey(1) & 0xFF
         if key == ord('q'):
