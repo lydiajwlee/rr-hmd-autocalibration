@@ -154,9 +154,6 @@ try:
 
             print(f"HMD world pos: ({hmd_world_pos[0]:.3f}, {hmd_world_pos[1]:.3f}, {hmd_world_pos[2]:.3f})")
             print(f"HMD world quat: ({qx:.3f}, {qy:.3f}, {qz:.3f}, {qw:.3f})")
-            print(f"Rotation vector:\n{rvec.ravel()}")
-            print(f"\nTranslation vector:\n{tvec.ravel()}")
-            print(f"\nRotation matrix:\n{R}")
 
         elif anchor_T is None and hmd_T is None:
             cv2.putText(frame_bgr, "No markers detected",
