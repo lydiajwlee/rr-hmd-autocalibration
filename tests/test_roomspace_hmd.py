@@ -172,8 +172,8 @@ try:
         if key == ord('q'):
             break
         elif key == ord(' '):
-            os.makedirs("tests/relative_pose/captures", exist_ok=True)
-            filename = f"tests/relative_pose/captures/capture_{int(time.time())}.png"
+            os.makedirs("tests/captures", exist_ok=True)
+            filename = f"tests/captures/capture_{int(time.time())}.png"
             cv2.imwrite(filename, frame_bgr)
             print(f"Screenshot saved to {filename}")
 
