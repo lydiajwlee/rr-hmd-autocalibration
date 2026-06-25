@@ -96,8 +96,14 @@ python tests/test_heart.py
 
 **Test relative pose between anchor and HMD marker:**
 ```bash
-python tests/relative_pose/test_relative_pose.py
+python tests/test_relative_pose.py
 ```
+
+**Test real-world pose of HMD marker relative to a fixed anchor marker:**
+```bash
+python test/test_roomspace_hmd.py
+```
+
 Press `SPACE` to capture screenshot. Press `Q` to quit.
 
 ---
