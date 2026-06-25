@@ -48,9 +48,10 @@ ZED Camera
 **tests/**
 - `test_zed_connection.py` — Verify ZED camera connection and K matrix
 - `test_heart.py` — ArUco detection test, renders heart above detected marker
-- `relative_pose/`
-  - `test_relative_pose.py` — Relative pose between anchor (ID 100) and HMD (ID 0)
-  - `captures/` — Screenshots captured during testing
+- `test_relative_pose.py` — Relative pose between anchor (ID 100) and HMD (ID 0)
+- `test_roomspace_hmd.py` - Real-world pose of HMD marker relative to a fixed anchor marker
+- `captures/` — Screenshots captured during testing
+
 ---
 
 ## Dependencies
