@@ -3,7 +3,7 @@ from scipy.spatial.transform import Rotation
 
 # Fixed anchor world poses (Unity convention, meters)
 ANCHOR_WORLD_POSES = {
-    101: {
+    100: {
         "position": np.array([-0.9398, 0.8700, 0.0]),
         "rotation": Rotation.from_euler('y', 90, degrees=True).as_matrix()
     }

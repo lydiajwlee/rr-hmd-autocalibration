@@ -11,7 +11,7 @@ except ImportError:
 ARUCO_DICT  = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_6X6_250)
 DETECTOR    = cv2.aruco.ArucoDetector(ARUCO_DICT, cv2.aruco.DetectorParameters())
 
-ANCHOR_ID   = 101   # Fixed anchor marker
+ANCHOR_ID   = 100   # Fixed anchor marker
 HMD_ID      = 0     # HMD marker
 MARKER_SIZE = 0.1   # meters
 
