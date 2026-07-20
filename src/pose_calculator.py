@@ -5,7 +5,7 @@ from scipy.spatial.transform import Rotation
 ANCHOR_WORLD_POSES = {
     100: {
         "position": np.array([-0.9398, 0.8700, 0.0]),
-        "rotation": Rotation.from_euler('y', 90, degrees=True).as_matrix()
+        "rotation": Rotation.from_euler('y', 0, degrees=True).as_matrix()
     }
 }
 
