@@ -2,27 +2,24 @@ import sys
 import os
 sys.path.append(os.path.dirname(__file__))
 
-from aruco_detector import run, run_webcam, HMD_ID
+from aruco_detector import run, run_webcam, HMD_ID, ANCHOR_ID
 from pose_calculator import hmd_world_pose
 
 # ── OSC (uncomment when sending to Unity) ──────────────────────────────────
-# from osc_sender import OSCSender
-# sender = OSCSender()
+from osc_sender import OSCSender
+sender = OSCSender()
 # ────────────────────────────────────────────────────────────────────────────
 
-def on_pose_detected(anchor_Ts, hmd_T):
-    # use first visible anchor
-    anchor_id = list(anchor_Ts.keys())[0]
-    anchor_T  = anchor_Ts[anchor_id]
+def on_pose_detected(anchor_T, hmd_T):
 
-    world_pos, quat = hmd_world_pose(anchor_id, anchor_T, hmd_T)
+    world_pos, quat = hmd_world_pose(ANCHOR_ID, anchor_T, hmd_T)
 
-    print(f"[main] anchor={anchor_id} "
+    print(f"[main] anchor={ANCHOR_ID} "
           f"pos=({world_pos[0]:.3f}, {world_pos[1]:.3f}, {world_pos[2]:.3f}) "
           f"quat=({quat[0]:.3f}, {quat[1]:.3f}, {quat[2]:.3f}, {quat[3]:.3f})")
 
     # ── OSC (uncomment when sending to Unity) ──────────────────────────────
-    # sender.send_pose(HMD_ID, world_pos, quat)
+    sender.send_pose(HMD_ID, world_pos, quat)
     # ────────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
