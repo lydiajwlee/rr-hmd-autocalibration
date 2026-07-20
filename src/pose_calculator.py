@@ -13,11 +13,6 @@ ANCHOR_WORLD_POSES = {
 # X+ left, Y+ up (ceiling), Z+ forward (window)
 # Unity coordinates convention:
 # X+ right, Y+ up (ceiling), Z+ forward (window)
-CV_TO_UNITY = np.array([
-    [1, 0, 0],
-    [0, -1, 0],
-    [0, 0, 1]
-], dtype=np.float64)
 
 def anchor_to_hmd_pose(anchor_T, hmd_T):
     """
@@ -36,18 +31,28 @@ def hmd_world_pose(anchor_id, anchor_T, hmd_T):
     hmd_T:     4x4 matrix of HMD in camera space
     returns:   (position np.array[3], quaternion np.array[4] as x,y,z,w)
     """
-    rel_T   = anchor_to_hmd_pose(anchor_T, hmd_T)
+    rel_T   = np.linalg.inv(anchor_T) @ hmd_T
 
-    rel_pos_cv = rel_T[:3, 3]
-    rel_rot_cv = rel_T[:3, :3]
-
-    rel_pos_unity = CV_TO_UNITY @ rel_pos_cv
-    rel_rot_unity = CV_TO_UNITY @ rel_rot_cv @ CV_TO_UNITY
+    rel_pos = rel_T[:3, 3]
+    rel_rot = rel_T[:3, :3]
 
     anchor_world_pos = ANCHOR_WORLD_POSES[anchor_id]["position"]
     anchor_world_rot = ANCHOR_WORLD_POSES[anchor_id]["rotation"]
 
-    world_pos = anchor_world_pos + anchor_world_rot @ rel_pos_unity
+    world_pos = anchor_world_pos + anchor_world_rot @ rel_pos
+
+    ROTATION_CONVERSION = np.array([
+        [-1, 0, 0],
+        [0, 1, 0],
+        [0, 0, 1]
+    ], dtype=np.float64)
+
+    rel_rot_unity = (
+        ROTATION_CONVERSION
+        @ rel_rot
+        @ ROTATION_CONVERSION
+    )
+
     world_rot = anchor_world_rot @ rel_rot_unity
 
     quat = Rotation.from_matrix(world_rot).as_quat()  # (x, y, z, w)
