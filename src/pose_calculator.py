@@ -39,9 +39,9 @@ def hmd_world_pose(anchor_id, anchor_T, hmd_T):
     anchor_world_pos = ANCHOR_WORLD_POSES[anchor_id]["position"]
     anchor_world_rot = ANCHOR_WORLD_POSES[anchor_id]["rotation"]
 
-    # The camera-relative Z axis runs opposite to the room's Unity Z axis.
+    # The camera-relative X axis runs opposite to the room's Unity X axis.
     rel_pos_unity = rel_pos.copy()
-    rel_pos_unity[2] *= -1
+    rel_pos_unity[0] *= -1
 
     world_pos = anchor_world_pos + anchor_world_rot @ rel_pos_unity
 
