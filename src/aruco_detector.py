@@ -118,53 +118,24 @@ def run(on_pose_detected):
         print("[aruco_detector] ZED terminated")
 
 
-def run_webcam(on_pose_detected, camera_index=0):
-    """
-    Run detection loop using a webcam instead of ZED (for testing without cameras).
-    on_pose_detected(anchor_T, hmd_T) called when both markers detected.
-    """
+def run_webcam(on_pose_detected, camera_index=0, intrinsics_path=None):
     cap = cv2.VideoCapture(camera_index)
+
 
     if not cap.isOpened():
         print("[aruco_detector] Webcam connection failed")
         return
 
-    # 웹캠은 ZED처럼 정확한 K를 모르니까 대략적인 값 사용
-    ret, frame = cap.read()
-    if not ret:
-        print("[aruco_detector] Failed to read frame")
-        return
 
-    h, w = frame.shape[:2]
-    focal = w  # rough approximation
-    K = np.array([[focal, 0, w/2],
-                  [0, focal, h/2],
-                  [0, 0, 1]], dtype=np.float64)
-    dist = np.zeros(4, dtype=np.float64)
-
-    print("[aruco_detector] Webcam connected. (approximate K matrix)")
-
-    try:
-        while True:
-            ret, frame = cap.read()
-            if not ret:
-                continue
-
-            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-
-            anchor_T, hmd_T, corners, ids = detect_markers(gray, K, dist)
-
-            if ids is not None:
-                cv2.aruco.drawDetectedMarkers(frame, corners, ids)
-
-            if anchor_T is not None and hmd_T is not None:
-                on_pose_detected(anchor_T, hmd_T)
-
-            cv2.imshow("Webcam ArUco", frame)
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                break
-
-    finally:
-        cap.release()
-        cv2.destroyAllWindows()
-        print("[aruco_detector] Webcam terminated")
+    # K matrix 로드
+    if intrinsics_path is not None:
+        data = np.load(intrinsics_path)
+        K    = data['K']
+        dist = data['dist']
+        print(f"[aruco_detector] Loaded K matrix from {intrinsics_path}")
+    else:
+        ret, frame = cap.read()
+        h, w = frame.shape[:2]
+        K    = np.array([[w, 0, w/2], [0, w, h/2], [0, 0, 1]], dtype=np.float64)
+        dist = np.zeros(4, dtype=np.float64)
+        print("[aruco_detector] Using approximate K matrix")

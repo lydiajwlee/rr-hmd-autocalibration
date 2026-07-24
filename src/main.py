@@ -24,6 +24,6 @@ def on_pose_detected(anchor_T, hmd_T):
 
 if __name__ == "__main__":
     # ── Pick ONE camera source ──────────────────────────────────────────────
-    run_webcam(on_pose_detected)   # webcam (no ZED)
+    run_webcam(on_pose_detected, intrinsics_path="webcam_calibration/intrinsics.npz")   # webcam (no ZED)
     # run(on_pose_detected)        # ZED streaming
     # ────────────────────────────────────────────────────────────────────────
