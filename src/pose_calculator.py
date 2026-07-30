@@ -6,6 +6,11 @@ ANCHOR_WORLD_POSES = {
     100: {
         "position": np.array([-0.9398, 0.8700, -1.397]),
         "rotation": Rotation.from_euler('y', 0, degrees=True).as_matrix()
+    },
+    101: {
+        # Survey values: verify these measurements in the Unity room frame.
+        "position": np.array([-0.9398, 0.8700, 0.0]),
+        "rotation": Rotation.from_euler('y', 90, degrees=True).as_matrix()
     }
 }
 
@@ -62,3 +67,28 @@ def hmd_world_pose(anchor_id, anchor_T, hmd_T):
     quat = Rotation.from_matrix(world_rot).as_quat()  # (x, y, z, w)
 
     return world_pos, quat
+
+
+def averaged_hmd_world_pose(anchor_transforms, hmd_T):
+    """Fuse independent HMD world-pose estimates from all supplied anchors.
+
+    Positions use an arithmetic mean. Rotations use SciPy's quaternion-aware
+    rotation mean, which handles the q/-q equivalence correctly.
+    """
+    if not anchor_transforms:
+        raise ValueError("At least one anchor transform is required")
+
+    unknown_ids = set(anchor_transforms) - set(ANCHOR_WORLD_POSES)
+    if unknown_ids:
+        raise KeyError(f"Missing world poses for anchors: {sorted(unknown_ids)}")
+
+    estimates = [
+        hmd_world_pose(anchor_id, anchor_T, hmd_T)
+        for anchor_id, anchor_T in sorted(anchor_transforms.items())
+    ]
+    positions = np.stack([position for position, _ in estimates])
+    quaternions = np.stack([quaternion for _, quaternion in estimates])
+
+    averaged_position = positions.mean(axis=0)
+    averaged_quaternion = Rotation.from_quat(quaternions).mean().as_quat()
+    return averaged_position, averaged_quaternion

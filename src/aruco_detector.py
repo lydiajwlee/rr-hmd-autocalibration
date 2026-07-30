@@ -11,8 +11,8 @@ except ImportError:
 ARUCO_DICT  = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_6X6_250)
 DETECTOR    = cv2.aruco.ArucoDetector(ARUCO_DICT, cv2.aruco.DetectorParameters())
 
-ANCHOR_ID   = 100   # Fixed anchor marker
-HMD_ID      = 0     # HMD marker
+ANCHOR_IDS  = (100, 101)  # Fixed wall markers required for calibration
+HMD_ID      = 0           # HMD marker
 MARKER_SIZE = 0.1   # meters
 
 CAMERA_IP   = "192.168.50.3"
@@ -50,30 +50,37 @@ def get_pose(corners, K, dist):
     return T
 
 def detect_markers(gray, K, dist):
-    """Detect anchor and HMD markers in a grayscale frame.
-    Returns (anchor_T, hmd_T) — either can be None."""
+    """Detect both wall anchors and the HMD marker in one grayscale frame.
+
+    Returns ({anchor_id: camera_T_anchor}, camera_T_hmd, corners, ids).
+    The anchor dictionary can be incomplete when one or both anchors are hidden.
+    """
     corners, ids, _ = DETECTOR.detectMarkers(gray)
 
-    anchor_T = None
-    hmd_T    = None
+    anchor_transforms = {}
+    hmd_T             = None
 
     if ids is not None:
         for i, marker_id in enumerate(ids.flatten()):
             T = get_pose(corners[i], K, dist)
             if T is None:
                 continue
-            if marker_id == ANCHOR_ID:
-                anchor_T = T
+            if marker_id in ANCHOR_IDS:
+                anchor_transforms[int(marker_id)] = T
             elif marker_id == HMD_ID:
                 hmd_T = T
 
-    return anchor_T, hmd_T, corners, ids
+    return anchor_transforms, hmd_T, corners, ids
 
 def run(on_pose_detected):
     """
-    Run live ZED stream detection loop.
-    on_pose_detected(anchor_T, hmd_T) called when both markers detected.
+    Detect one valid anchor/HMD pair from the ZED stream, then stop.
+    on_pose_detected(anchor_transforms, hmd_T) is called exactly once, after
+    both configured wall anchors and the HMD are visible in the same frame.
     """
+    if sl is None:
+        raise RuntimeError("pyzed is required to use the ZED camera")
+
     init_params = sl.InitParameters()
     init_params.set_from_stream(CAMERA_IP, CAMERA_PORT)
 
@@ -89,9 +96,10 @@ def run(on_pose_detected):
 
     image          = sl.Mat()
     runtime_params = sl.RuntimeParameters()
+    calibrated     = False
 
     try:
-        while True:
+        while not calibrated:
             if zed.grab(runtime_params) != sl.ERROR_CODE.SUCCESS:
                 continue
 
@@ -100,16 +108,24 @@ def run(on_pose_detected):
             frame_bgr = cv2.cvtColor(frame, cv2.COLOR_BGRA2BGR)
             gray      = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2GRAY)
 
-            anchor_T, hmd_T, corners, ids = detect_markers(gray, K, dist)
+            anchor_transforms, hmd_T, corners, ids = detect_markers(
+                gray, K, dist
+            )
 
             if ids is not None:
                 cv2.aruco.drawDetectedMarkers(frame_bgr, corners, ids)
 
-            if anchor_T is not None and hmd_T is not None:
-                on_pose_detected(anchor_T, hmd_T)
+            anchors_ready = all(
+                anchor_id in anchor_transforms for anchor_id in ANCHOR_IDS
+            )
+            if not calibrated and anchors_ready and hmd_T is not None:
+                on_pose_detected(anchor_transforms, hmd_T)
+                calibrated = True
+                print("[aruco_detector] Calibration captured; stopping detection")
 
-            cv2.imshow("ZED ArUco", frame_bgr)
-            if cv2.waitKey(1) & 0xFF == ord('q'):
+            if not calibrated:
+                cv2.imshow("ZED ArUco", frame_bgr)
+            if not calibrated and cv2.waitKey(1) & 0xFF == ord('q'):
                 break
 
     finally:
@@ -119,6 +135,7 @@ def run(on_pose_detected):
 
 
 def run_webcam(on_pose_detected, camera_index=0, intrinsics_path=None):
+    """Detect one valid anchor/HMD pair from a webcam, then stop."""
     cap = cv2.VideoCapture(camera_index)
 
     if not cap.isOpened():
@@ -143,24 +160,33 @@ def run_webcam(on_pose_detected, camera_index=0, intrinsics_path=None):
         print("[aruco_detector] Using approximate K matrix")
 
     print("[aruco_detector] Webcam connected — press Q to quit")
+    calibrated = False
 
     try:
-        while True:
+        while not calibrated:
             ret, frame = cap.read()
             if not ret:
                 continue
 
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            anchor_T, hmd_T, corners, ids = detect_markers(gray, K, dist)
+            anchor_transforms, hmd_T, corners, ids = detect_markers(
+                gray, K, dist
+            )
 
             if ids is not None:
                 cv2.aruco.drawDetectedMarkers(frame, corners, ids)
 
-            if anchor_T is not None and hmd_T is not None:
-                on_pose_detected(anchor_T, hmd_T)
+            anchors_ready = all(
+                anchor_id in anchor_transforms for anchor_id in ANCHOR_IDS
+            )
+            if not calibrated and anchors_ready and hmd_T is not None:
+                on_pose_detected(anchor_transforms, hmd_T)
+                calibrated = True
+                print("[aruco_detector] Calibration captured; stopping detection")
 
-            cv2.imshow("Webcam ArUco", frame)
-            if cv2.waitKey(1) & 0xFF == ord('q'):
+            if not calibrated:
+                cv2.imshow("Webcam ArUco", frame)
+            if not calibrated and cv2.waitKey(1) & 0xFF == ord('q'):
                 break
 
     finally:

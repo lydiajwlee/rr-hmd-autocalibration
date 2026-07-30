@@ -1,16 +1,19 @@
 # Reality Roost HMD Autocalibration
 
-Automatic HMD calibration pipeline for Reality Roost, a VR co-location system. Uses external ZED cameras to detect ArUco markers on headsets and compute real-time pose in room space, transmitted to Unity via OSC.
+One-time automatic HMD calibration pipeline for Reality Roost, a VR co-location system. An external camera detects the entrance anchor and headset ArUco markers once, computes the headset pose in room space, and transmits that pose to Unity via OSC. The camera pipeline then stops and Quest inside-out tracking takes over.
 
 ---
 
 ## Pipeline Overview
 ZED Camera
-→ ArUco marker detection (aruco_detector.py)
-→ Relative pose estimation (anchor marker as origin)
+→ Simultaneous ArUco detection: HMD 0 and wall anchors 100/101
+→ Independent HMD pose estimation from each wall anchor
+→ Position and quaternion-aware rotation averaging
 → Coordinate conversion: OpenCV → Unity
 → OSC transmission (osc_sender.py)
-→ Unity XR Rig update
+→ One-time Unity XR Rig placement
+→ Passthrough disabled and VR scene enabled
+→ Quest inside-out tracking
 
 ---
 
@@ -22,7 +25,7 @@ ZED Camera
 
 **ID Convention**
 - ID 0-99 → HMD markers
-- ID 100+ → Fixed anchor markers
+- IDs 100 and 101 → Fixed entrance wall markers
 
 **Room Coordinate System (Unity convention)**
 - Origin (0,0,0): Center of the railing-enclosed space
@@ -41,9 +44,14 @@ ZED Camera
 
 ## Project Structure
 **src/**
-- `aruco_detector.py` — ZED camera connection, ArUco detection, pose estimation
+- `aruco_detector.py` — Camera connection and simultaneous two-anchor/HMD detection
+- `pose_calculator.py` — Per-anchor world pose calculation and pose fusion
 - `osc_sender.py` — Converts pose to quaternion, sends via OSC to Unity
 - `main.py` — Entry point
+
+**unity/Assets/Scripts/**
+- `OneShotCalibrationReceiver.cs` — Applies the first OSC pose directly, with no lerp/slerp
+- `CalibrationSceneTransition.cs` — Switches from passthrough to the VR scene when calibration completes
 
 **tests/**
 - `test_zed_connection.py` — Verify ZED camera connection and K matrix
@@ -106,6 +114,19 @@ python test/test_roomspace_hmd.py
 ```
 
 Press `SPACE` to capture screenshot. Press `Q` to quit.
+
+## Unity Setup
+
+1. Copy `unity/Assets/Scripts` into the Unity project.
+2. Add `OneShotCalibrationReceiver` to a scene object and assign the XR Rig and its tracked headset camera.
+3. Bind the OSC `/markers` message fields to `ReceivePose`. The expected payload is marker ID, position XYZ, quaternion XYZW, and timestamp.
+4. Add `CalibrationSceneTransition`, assign the passthrough component and VR scene root, then connect the receiver's **On Calibration Complete** event to `TransitionToVr`.
+
+The receiver solves the XR Rig origin from the current tracked-head offset, applies the pose immediately, and rejects all later calibration messages.
+
+The hardcoded world positions and orientations for anchors 100 and 101 live in
+`src/pose_calculator.py`. They are survey values in Unity coordinates and must
+match the markers' measured installation poses.
 
 ---
 *README last updated: June 18, 2026*
