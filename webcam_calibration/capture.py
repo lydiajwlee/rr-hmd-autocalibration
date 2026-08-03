@@ -43,9 +43,10 @@ if not ret:
 actual_height, actual_width = frame.shape[:2]
 print(f"Actual camera resolution: {actual_width}x{actual_height}")
 if (actual_width, actual_height) != (CAMERA_WIDTH, CAMERA_HEIGHT):
-    cap.release()
-    raise RuntimeError(
-        f"Camera did not provide requested {CAMERA_WIDTH}x{CAMERA_HEIGHT}"
+    print(
+        f"Warning: requested {CAMERA_WIDTH}x{CAMERA_HEIGHT}, but the camera "
+        f"provided {actual_width}x{actual_height}. Calibration will use the "
+        "actual resolution."
     )
 
 print("Press SPACE to capture, Q to quit")
@@ -96,5 +97,4 @@ while True:
 cap.release()
 cv2.destroyAllWindows()
 print(f"Done. {count} images saved.")
-
 

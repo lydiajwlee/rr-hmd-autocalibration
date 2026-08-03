@@ -246,9 +246,9 @@ def run_webcam(
         f"{actual_width}x{actual_height} — press Q to quit"
     )
     if (actual_width, actual_height) != (WEBCAM_WIDTH, WEBCAM_HEIGHT):
-        cap.release()
-        raise RuntimeError(
-            f"Webcam did not provide requested {WEBCAM_WIDTH}x{WEBCAM_HEIGHT}"
+        print(
+            f"[aruco_detector] Requested {WEBCAM_WIDTH}x{WEBCAM_HEIGHT}, "
+            f"using camera-provided {actual_width}x{actual_height}"
         )
     if intrinsics_path is not None and calibrated_size is not None:
         if calibrated_size != (actual_width, actual_height):
