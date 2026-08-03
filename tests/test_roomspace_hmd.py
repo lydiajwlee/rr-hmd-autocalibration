@@ -12,7 +12,8 @@ DETECTOR    = cv2.aruco.ArucoDetector(ARUCO_DICT, cv2.aruco.DetectorParameters()
 ANCHOR_ID   = 101   # Fixed anchor marker at -37, 34.25, 0 inches -> -0.9398, 0.8700, 0 meters
 HMD_ID      = 0     # HMD marker
 
-MARKER_SIZE = 0.1   # meters
+ANCHOR_MARKER_SIZE = 0.179  # meters
+HMD_MARKER_SIZE    = 0.096  # meters
 
 CAMERA_IP   = "192.168.50.3"
 CAMERA_PORT = 30000
@@ -43,9 +44,9 @@ def get_marker_object_points(size):
         [-half, -half, 0]
     ], dtype=np.float32)
 
-def get_pose(corners, K, dist):
+def get_pose(corners, marker_size, K, dist):
     """Get 4x4 transform matrix from marker corners."""
-    obj_points = get_marker_object_points(MARKER_SIZE)
+    obj_points = get_marker_object_points(marker_size)
     img_points = corners.reshape(4, 2)
 
     # solve PnP
@@ -111,7 +112,12 @@ try:
             cv2.aruco.drawDetectedMarkers(frame_bgr, corners, ids)
 
             for i, marker_id in enumerate(ids.flatten()):
-                T = get_pose(corners[i], K, dist)
+                marker_size = (
+                    ANCHOR_MARKER_SIZE
+                    if marker_id == ANCHOR_ID
+                    else HMD_MARKER_SIZE
+                )
+                T = get_pose(corners[i], marker_size, K, dist)
                 if T is None:
                     continue
 

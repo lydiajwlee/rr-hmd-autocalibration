@@ -21,7 +21,10 @@ ZED Camera
 
 **Dictionary:** DICT_6X6_250
 
-**Marker Size:** 0.1m (TBD)
+**Marker Sizes**
+
+- Wall anchors 100 and 101: 179 mm (`0.179 m`)
+- HMD marker 0: 96 mm (`0.096 m`)
 
 **ID Convention**
 - ID 0-99 → HMD markers

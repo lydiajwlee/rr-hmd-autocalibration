@@ -9,15 +9,45 @@ except ImportError:
 
 # ── CONFIG ──────────────────────────────────────────────────────────────────
 ARUCO_DICT  = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_6X6_250)
-DETECTOR    = cv2.aruco.ArucoDetector(ARUCO_DICT, cv2.aruco.DetectorParameters())
+DETECTOR_PARAMS = cv2.aruco.DetectorParameters()
+DETECTOR_PARAMS.cornerRefinementMethod = cv2.aruco.CORNER_REFINE_SUBPIX
+DETECTOR = cv2.aruco.ArucoDetector(ARUCO_DICT, DETECTOR_PARAMS)
 
 ANCHOR_IDS  = (100, 101)  # Fixed wall markers required for calibration
 HMD_ID      = 0           # HMD marker
-MARKER_SIZE = 0.1   # meters
+ANCHOR_MARKER_SIZE = 0.179  # 179 mm, in meters
+HMD_MARKER_SIZE    = 0.096  # 96 mm, in meters
+DETECTION_ZOOM = 1.2  # centered crop used for detection and preview
 
 CAMERA_IP   = "192.168.50.3"
 CAMERA_PORT = 30000
 # ────────────────────────────────────────────────────────────────────────────
+
+def zoom_detection_frame(frame, K, zoom=DETECTION_ZOOM):
+    """Center-zoom a frame and return the corresponding camera matrix."""
+    if zoom < 1.0:
+        raise ValueError("Detection zoom must be at least 1.0")
+    if zoom == 1.0:
+        return frame, K.copy()
+
+    height, width = frame.shape[:2]
+    crop_width = max(1, round(width / zoom))
+    crop_height = max(1, round(height / zoom))
+    left = (width - crop_width) // 2
+    top = (height - crop_height) // 2
+    cropped = frame[top:top + crop_height, left:left + crop_width]
+    zoomed = cv2.resize(
+        cropped, (width, height), interpolation=cv2.INTER_LINEAR
+    )
+
+    scale_x = width / crop_width
+    scale_y = height / crop_height
+    zoomed_K = K.copy().astype(np.float64)
+    zoomed_K[0, 0] *= scale_x
+    zoomed_K[1, 1] *= scale_y
+    zoomed_K[0, 2] = (K[0, 2] - left) * scale_x
+    zoomed_K[1, 2] = (K[1, 2] - top) * scale_y
+    return zoomed, zoomed_K
 
 def get_K_from_zed(zed):
     calib = zed.get_camera_information().camera_configuration.calibration_parameters
@@ -36,9 +66,9 @@ def get_marker_object_points(size):
         [-half, -half, 0]
     ], dtype=np.float32)
 
-def get_pose(corners, K, dist):
+def get_pose(corners, marker_size, K, dist):
     """Get 4x4 transform matrix from marker corners."""
-    obj_points = get_marker_object_points(MARKER_SIZE)
+    obj_points = get_marker_object_points(marker_size)
     img_points = corners.reshape(4, 2)
     success, rvec, tvec = cv2.solvePnP(obj_points, img_points, K, dist)
     if not success:
@@ -62,7 +92,14 @@ def detect_markers(gray, K, dist):
 
     if ids is not None:
         for i, marker_id in enumerate(ids.flatten()):
-            T = get_pose(corners[i], K, dist)
+            if marker_id in ANCHOR_IDS:
+                marker_size = ANCHOR_MARKER_SIZE
+            elif marker_id == HMD_ID:
+                marker_size = HMD_MARKER_SIZE
+            else:
+                continue
+
+            T = get_pose(corners[i], marker_size, K, dist)
             if T is None:
                 continue
             if marker_id in ANCHOR_IDS:
@@ -106,14 +143,15 @@ def run(on_pose_detected):
             zed.retrieve_image(image, sl.VIEW.LEFT)
             frame     = image.get_data()
             frame_bgr = cv2.cvtColor(frame, cv2.COLOR_BGRA2BGR)
-            gray      = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2GRAY)
+            detection_frame, detection_K = zoom_detection_frame(frame_bgr, K)
+            gray = cv2.cvtColor(detection_frame, cv2.COLOR_BGR2GRAY)
 
             anchor_transforms, hmd_T, corners, ids = detect_markers(
-                gray, K, dist
+                gray, detection_K, dist
             )
 
             if ids is not None:
-                cv2.aruco.drawDetectedMarkers(frame_bgr, corners, ids)
+                cv2.aruco.drawDetectedMarkers(detection_frame, corners, ids)
 
             anchors_ready = all(
                 anchor_id in anchor_transforms for anchor_id in ANCHOR_IDS
@@ -124,7 +162,7 @@ def run(on_pose_detected):
                 print("[aruco_detector] Calibration captured; stopping detection")
 
             if not calibrated:
-                cv2.imshow("ZED ArUco", frame_bgr)
+                cv2.imshow("ZED ArUco", detection_frame)
             if not calibrated and cv2.waitKey(1) & 0xFF == ord('q'):
                 break
 
@@ -168,13 +206,14 @@ def run_webcam(on_pose_detected, camera_index=0, intrinsics_path=None):
             if not ret:
                 continue
 
-            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            detection_frame, detection_K = zoom_detection_frame(frame, K)
+            gray = cv2.cvtColor(detection_frame, cv2.COLOR_BGR2GRAY)
             anchor_transforms, hmd_T, corners, ids = detect_markers(
-                gray, K, dist
+                gray, detection_K, dist
             )
 
             if ids is not None:
-                cv2.aruco.drawDetectedMarkers(frame, corners, ids)
+                cv2.aruco.drawDetectedMarkers(detection_frame, corners, ids)
 
             anchors_ready = all(
                 anchor_id in anchor_transforms for anchor_id in ANCHOR_IDS
@@ -185,7 +224,7 @@ def run_webcam(on_pose_detected, camera_index=0, intrinsics_path=None):
                 print("[aruco_detector] Calibration captured; stopping detection")
 
             if not calibrated:
-                cv2.imshow("Webcam ArUco", frame)
+                cv2.imshow("Webcam ArUco", detection_frame)
             if not calibrated and cv2.waitKey(1) & 0xFF == ord('q'):
                 break
 
