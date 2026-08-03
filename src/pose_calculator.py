@@ -8,9 +8,10 @@ ANCHOR_WORLD_POSES = {
         "rotation": Rotation.from_euler('y', 0, degrees=True).as_matrix()
     },
     101: {
-        # Survey values: verify these measurements in the Unity room frame.
-        "position": np.array([-0.9398, 0.8700, 0.0]),
-        "rotation": Rotation.from_euler('y', 90, degrees=True).as_matrix()
+        # Surveyed in inches as (-37, 95.5, -97), converted to meters.
+        # The marker faces the window (Unity +Z), so its yaw is 0 degrees.
+        "position": np.array([-0.9398, 2.4257, -2.4638]),
+        "rotation": Rotation.from_euler('y', 0, degrees=True).as_matrix()
     }
 }
 

@@ -13,7 +13,7 @@ DETECTOR_PARAMS = cv2.aruco.DetectorParameters()
 DETECTOR_PARAMS.cornerRefinementMethod = cv2.aruco.CORNER_REFINE_SUBPIX
 DETECTOR = cv2.aruco.ArucoDetector(ARUCO_DICT, DETECTOR_PARAMS)
 
-ANCHOR_IDS  = (100, 101)  # Fixed wall markers required for calibration
+ANCHOR_IDS  = (101,)      # Test mode: require only wall marker 101
 HMD_ID      = 0           # HMD marker
 ANCHOR_MARKER_SIZE = 0.179  # 179 mm, in meters
 HMD_MARKER_SIZE    = 0.096  # 96 mm, in meters
@@ -109,11 +109,27 @@ def detect_markers(gray, K, dist):
 
     return anchor_transforms, hmd_T, corners, ids
 
-def run(on_pose_detected):
+def draw_world_pose(frame, world_pose):
+    """Draw an HMD world position and quaternion on a camera frame."""
+    if world_pose is None:
+        return
+
+    position, quaternion = world_pose
+    lines = (
+        f"HMD world XYZ: {position[0]:.3f}, {position[1]:.3f}, {position[2]:.3f} m",
+        f"HMD world XYZW: {quaternion[0]:.3f}, {quaternion[1]:.3f}, "
+        f"{quaternion[2]:.3f}, {quaternion[3]:.3f}",
+    )
+    for index, line in enumerate(lines):
+        cv2.putText(
+            frame, line, (20, 35 + index * 32),
+            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2, cv2.LINE_AA,
+        )
+
+def run(on_pose_detected, stop_after_detection=True):
     """
-    Detect one valid anchor/HMD pair from the ZED stream, then stop.
-    on_pose_detected(anchor_transforms, hmd_T) is called exactly once, after
-    both configured wall anchors and the HMD are visible in the same frame.
+    Detect the configured anchor(s) and HMD from the ZED stream.
+    Stop after the first pose by default, or continue for a live test display.
     """
     if sl is None:
         raise RuntimeError("pyzed is required to use the ZED camera")
@@ -134,6 +150,7 @@ def run(on_pose_detected):
     image          = sl.Mat()
     runtime_params = sl.RuntimeParameters()
     calibrated     = False
+    last_world_pose = None
 
     try:
         while not calibrated:
@@ -157,9 +174,12 @@ def run(on_pose_detected):
                 anchor_id in anchor_transforms for anchor_id in ANCHOR_IDS
             )
             if not calibrated and anchors_ready and hmd_T is not None:
-                on_pose_detected(anchor_transforms, hmd_T)
-                calibrated = True
-                print("[aruco_detector] Calibration captured; stopping detection")
+                last_world_pose = on_pose_detected(anchor_transforms, hmd_T)
+                if stop_after_detection:
+                    calibrated = True
+                    print("[aruco_detector] Calibration captured; stopping detection")
+
+            draw_world_pose(detection_frame, last_world_pose)
 
             if not calibrated:
                 cv2.imshow("ZED ArUco", detection_frame)
@@ -172,8 +192,13 @@ def run(on_pose_detected):
         print("[aruco_detector] ZED terminated")
 
 
-def run_webcam(on_pose_detected, camera_index=0, intrinsics_path=None):
-    """Detect one valid anchor/HMD pair from a webcam, then stop."""
+def run_webcam(
+    on_pose_detected,
+    camera_index=0,
+    intrinsics_path=None,
+    stop_after_detection=True,
+):
+    """Detect an anchor/HMD pose once, or continuously in live test mode."""
     cap = cv2.VideoCapture(camera_index)
 
     if not cap.isOpened():
@@ -199,6 +224,7 @@ def run_webcam(on_pose_detected, camera_index=0, intrinsics_path=None):
 
     print("[aruco_detector] Webcam connected — press Q to quit")
     calibrated = False
+    last_world_pose = None
 
     try:
         while not calibrated:
@@ -219,9 +245,12 @@ def run_webcam(on_pose_detected, camera_index=0, intrinsics_path=None):
                 anchor_id in anchor_transforms for anchor_id in ANCHOR_IDS
             )
             if not calibrated and anchors_ready and hmd_T is not None:
-                on_pose_detected(anchor_transforms, hmd_T)
-                calibrated = True
-                print("[aruco_detector] Calibration captured; stopping detection")
+                last_world_pose = on_pose_detected(anchor_transforms, hmd_T)
+                if stop_after_detection:
+                    calibrated = True
+                    print("[aruco_detector] Calibration captured; stopping detection")
+
+            draw_world_pose(detection_frame, last_world_pose)
 
             if not calibrated:
                 cv2.imshow("Webcam ArUco", detection_frame)

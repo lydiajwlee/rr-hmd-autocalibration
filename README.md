@@ -6,9 +6,9 @@ One-time automatic HMD calibration pipeline for Reality Roost, a VR co-location 
 
 ## Pipeline Overview
 ZED Camera
-→ Simultaneous ArUco detection: HMD 0 and wall anchors 100/101
-→ Independent HMD pose estimation from each wall anchor
-→ Position and quaternion-aware rotation averaging
+→ ArUco detection: HMD 0 and the configured wall anchor(s)
+→ Independent HMD pose estimation from each detected wall anchor
+→ Position and quaternion-aware rotation averaging when using multiple anchors
 → Coordinate conversion: OpenCV → Unity
 → OSC transmission (osc_sender.py)
 → One-time Unity XR Rig placement
@@ -128,8 +128,10 @@ Press `SPACE` to capture screenshot. Press `Q` to quit.
 The receiver solves the XR Rig origin from the current tracked-head offset, applies the pose immediately, and rejects all later calibration messages.
 
 The hardcoded world positions and orientations for anchors 100 and 101 live in
-`src/pose_calculator.py`. They are survey values in Unity coordinates and must
-match the markers' measured installation poses.
+`src/pose_calculator.py`. The current test configuration in
+`src/aruco_detector.py` enables only marker 101, at surveyed position
+`(-37, 95.5, -97)` inches and facing Unity `+Z` (the window). These values must
+match the marker's measured installation pose.
 
 ---
 *README last updated: June 18, 2026*
