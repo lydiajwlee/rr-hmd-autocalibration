@@ -3,7 +3,7 @@ import os
 sys.path.append(os.path.dirname(__file__))
 
 from aruco_detector import run, run_webcam, HMD_ID, ANCHOR_IDS
-from pose_calculator import averaged_hmd_world_pose
+from pose_calculator import anchor_to_hmd_pose, averaged_hmd_world_pose
 
 # ── OSC (uncomment when sending to Unity) ──────────────────────────────────
 from osc_sender import OSCSender
@@ -15,6 +15,10 @@ def on_pose_detected(anchor_transforms, hmd_T):
     global calibration_sent
 
     world_pos, quat = averaged_hmd_world_pose(anchor_transforms, hmd_T)
+    anchor_id = ANCHOR_IDS[0]
+    relative_pos = anchor_to_hmd_pose(
+        anchor_transforms[anchor_id], hmd_T
+    )[:3, 3]
 
     if not calibration_sent:
         print(f"[main] anchors={ANCHOR_IDS} "
@@ -26,7 +30,7 @@ def on_pose_detected(anchor_transforms, hmd_T):
         calibration_sent = True
     # ───────────────────────────────────────────────────────────────────────
 
-    return world_pos, quat
+    return world_pos, quat, relative_pos
 
 if __name__ == "__main__":
     # ── Pick ONE camera source ──────────────────────────────────────────────

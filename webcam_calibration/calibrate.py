@@ -32,7 +32,14 @@ img_size       = None
 for path in glob.glob(os.path.join(IMAGES_DIR, "*.jpg")):
     img  = cv2.imread(path)
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    img_size = gray.shape[::-1]
+    current_img_size = gray.shape[::-1]
+    if img_size is None:
+        img_size = current_img_size
+    elif current_img_size != img_size:
+        raise ValueError(
+            f"Calibration images have mixed resolutions: "
+            f"expected {img_size}, found {current_img_size} in {path}"
+        )
 
 
     charuco_corners, charuco_ids, _, _ = detector.detectBoard(gray)
@@ -61,7 +68,6 @@ print(f"\nReprojection error: {ret:.4f} (aim for < 1.0)")
 print("K matrix:\n", K)
 
 
-np.savez(SAVE_PATH, K=K, dist=dist)
+np.savez(SAVE_PATH, K=K, dist=dist, image_size=np.array(img_size))
 print(f"\nSaved to {SAVE_PATH}")
-
 

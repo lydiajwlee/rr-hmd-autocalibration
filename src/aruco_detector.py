@@ -17,7 +17,10 @@ ANCHOR_IDS  = (101,)      # Test mode: require only wall marker 101
 HMD_ID      = 0           # HMD marker
 ANCHOR_MARKER_SIZE = 0.179  # 179 mm, in meters
 HMD_MARKER_SIZE    = 0.096  # 96 mm, in meters
-DETECTION_ZOOM = 1.2  # centered crop used for detection and preview
+DETECTION_ZOOM = 1.0  # validate new 4K intrinsics before adding digital zoom
+
+WEBCAM_WIDTH  = 3840
+WEBCAM_HEIGHT = 2160
 
 CAMERA_IP   = "192.168.50.3"
 CAMERA_PORT = 30000
@@ -114,12 +117,18 @@ def draw_world_pose(frame, world_pose):
     if world_pose is None:
         return
 
-    position, quaternion = world_pose
-    lines = (
+    position, quaternion = world_pose[:2]
+    lines = [
         f"HMD world XYZ: {position[0]:.3f}, {position[1]:.3f}, {position[2]:.3f} m",
         f"HMD world XYZW: {quaternion[0]:.3f}, {quaternion[1]:.3f}, "
         f"{quaternion[2]:.3f}, {quaternion[3]:.3f}",
-    )
+    ]
+    if len(world_pose) > 2:
+        relative = world_pose[2]
+        lines.append(
+            f"Anchor->HMD XYZ: {relative[0]:.3f}, {relative[1]:.3f}, "
+            f"{relative[2]:.3f} m"
+        )
     for index, line in enumerate(lines):
         cv2.putText(
             frame, line, (20, 35 + index * 32),
@@ -200,6 +209,9 @@ def run_webcam(
 ):
     """Detect an anchor/HMD pose once, or continuously in live test mode."""
     cap = cv2.VideoCapture(camera_index)
+    cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, WEBCAM_WIDTH)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, WEBCAM_HEIGHT)
 
     if not cap.isOpened():
         print("[aruco_detector] Webcam connection failed")
@@ -209,6 +221,11 @@ def run_webcam(
         data = np.load(intrinsics_path)
         K    = data['K']
         dist = data['dist']
+        calibrated_size = (
+            tuple(int(value) for value in data['image_size'])
+            if 'image_size' in data.files
+            else None
+        )
         print(f"[aruco_detector] Loaded K matrix from {intrinsics_path}")
     else:
         ret, frame = cap.read()
@@ -222,7 +239,24 @@ def run_webcam(
         dist = np.zeros(4, dtype=np.float64)
         print("[aruco_detector] Using approximate K matrix")
 
-    print("[aruco_detector] Webcam connected — press Q to quit")
+    actual_width = round(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    actual_height = round(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    print(
+        f"[aruco_detector] Webcam connected at "
+        f"{actual_width}x{actual_height} — press Q to quit"
+    )
+    if (actual_width, actual_height) != (WEBCAM_WIDTH, WEBCAM_HEIGHT):
+        cap.release()
+        raise RuntimeError(
+            f"Webcam did not provide requested {WEBCAM_WIDTH}x{WEBCAM_HEIGHT}"
+        )
+    if intrinsics_path is not None and calibrated_size is not None:
+        if calibrated_size != (actual_width, actual_height):
+            cap.release()
+            raise RuntimeError(
+                f"Intrinsics are for {calibrated_size[0]}x{calibrated_size[1]}, "
+                f"but webcam is {actual_width}x{actual_height}"
+            )
     calibrated = False
     last_world_pose = None
 

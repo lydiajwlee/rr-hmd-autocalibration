@@ -6,6 +6,8 @@ import os
 # ── CONFIG ──────────────────────────────────────────────────────────────────
 SAVE_DIR     = "webcam_calibration/images"
 CAMERA_INDEX = 0
+CAMERA_WIDTH = 3840
+CAMERA_HEIGHT = 2160
 
 
 CHARUCO_SQUARES_X = 7
@@ -27,8 +29,24 @@ detector = cv2.aruco.CharucoDetector(board)
 
 
 cap   = cv2.VideoCapture(CAMERA_INDEX)
+cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
+cap.set(cv2.CAP_PROP_FRAME_WIDTH, CAMERA_WIDTH)
+cap.set(cv2.CAP_PROP_FRAME_HEIGHT, CAMERA_HEIGHT)
 count = 0
 
+
+ret, frame = cap.read()
+if not ret:
+    cap.release()
+    raise RuntimeError("Could not read a frame from the calibration camera")
+
+actual_height, actual_width = frame.shape[:2]
+print(f"Actual camera resolution: {actual_width}x{actual_height}")
+if (actual_width, actual_height) != (CAMERA_WIDTH, CAMERA_HEIGHT):
+    cap.release()
+    raise RuntimeError(
+        f"Camera did not provide requested {CAMERA_WIDTH}x{CAMERA_HEIGHT}"
+    )
 
 print("Press SPACE to capture, Q to quit")
 print(f"Images will be saved to {SAVE_DIR}")
@@ -78,6 +96,5 @@ while True:
 cap.release()
 cv2.destroyAllWindows()
 print(f"Done. {count} images saved.")
-
 
 
