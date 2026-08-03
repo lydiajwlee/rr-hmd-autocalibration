@@ -15,10 +15,9 @@ ANCHOR_WORLD_POSES = {
     }
 }
 
-# OpenCV coordinates convention:
-# X+ left, Y+ up (ceiling), Z+ forward (window)
-# Unity coordinates convention:
-# X+ right, Y+ up (ceiling), Z+ forward (window)
+# Marker-local convention established by get_marker_object_points():
+# X+ toward the marker's right edge, Y+ toward its top edge, Z+ out of its face.
+# ANCHOR_WORLD_POSES rotations map that marker-local frame into the Unity room.
 
 def anchor_to_hmd_pose(anchor_T, hmd_T):
     """
@@ -39,31 +38,15 @@ def hmd_world_pose(anchor_id, anchor_T, hmd_T):
     """
     rel_T   = np.linalg.inv(anchor_T) @ hmd_T
 
-    rel_pos = rel_T[:3, 3]
-    rel_rot = rel_T[:3, :3]
-
     anchor_world_pos = ANCHOR_WORLD_POSES[anchor_id]["position"]
     anchor_world_rot = ANCHOR_WORLD_POSES[anchor_id]["rotation"]
 
-    # The camera-relative X axis runs opposite to the room's Unity X axis.
-    rel_pos_unity = rel_pos.copy()
-    rel_pos_unity[0] *= -1
-
-    world_pos = anchor_world_pos + anchor_world_rot @ rel_pos_unity
-
-    ROTATION_CONVERSION = np.array([
-        [-1, 0, 0],
-        [0, 1, 0],
-        [0, 0, 1]
-    ], dtype=np.float64)
-
-    rel_rot_unity = (
-        ROTATION_CONVERSION
-        @ rel_rot
-        @ ROTATION_CONVERSION
-    )
-
-    world_rot = anchor_world_rot @ rel_rot_unity
+    # camera_T cancels in inv(camera_T_anchor) @ camera_T_hmd. The result is
+    # already expressed in the anchor marker's local axes, so only the
+    # surveyed anchor-to-world transform is needed; no camera-axis flip belongs
+    # here.
+    world_pos = anchor_world_pos + anchor_world_rot @ rel_T[:3, 3]
+    world_rot = anchor_world_rot @ rel_T[:3, :3]
 
     quat = Rotation.from_matrix(world_rot).as_quat()  # (x, y, z, w)
 

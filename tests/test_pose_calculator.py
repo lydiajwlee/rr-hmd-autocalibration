@@ -8,10 +8,28 @@ from scipy.spatial.transform import Rotation
 
 sys.path.insert(0, str(pathlib.Path(__file__).parents[1] / "src"))
 
-from pose_calculator import ANCHOR_WORLD_POSES, averaged_hmd_world_pose
+from pose_calculator import (
+    ANCHOR_WORLD_POSES,
+    averaged_hmd_world_pose,
+    hmd_world_pose,
+)
 
 
 class AveragedHmdWorldPoseTests(unittest.TestCase):
+    def test_anchor_relative_transform_recovers_world_origin(self):
+        anchor_position = np.array([-0.9398, 2.4257, -2.4638])
+        anchor_T = np.eye(4)
+        hmd_T = np.eye(4)
+        hmd_T[:3, 3] = -anchor_position
+        synthetic_pose = {
+            101: {"position": anchor_position, "rotation": np.eye(3)}
+        }
+
+        with patch.dict(ANCHOR_WORLD_POSES, synthetic_pose, clear=True):
+            position, _ = hmd_world_pose(101, anchor_T, hmd_T)
+
+        np.testing.assert_allclose(position, np.zeros(3), atol=1e-12)
+
     def test_identical_estimates_remain_unchanged(self):
         identity = np.eye(4)
         anchor_transforms = {100: identity, 101: identity}
