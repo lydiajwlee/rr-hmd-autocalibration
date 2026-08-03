@@ -18,7 +18,7 @@ ANCHOR_WORLD_POSES = {
 # Marker-local convention established by get_marker_object_points():
 # X+ toward the marker's right edge, Y+ toward its top edge, Z+ out of its face.
 # ANCHOR_WORLD_POSES rotations map that marker-local frame into the Unity room.
-MARKER_TO_UNITY = np.diag([-1.0, 1.0, 1.0])
+MARKER_TO_UNITY = np.eye(3)
 
 def anchor_to_hmd_pose(anchor_T, hmd_T):
     """
@@ -42,9 +42,9 @@ def hmd_world_pose(anchor_id, anchor_T, hmd_T):
     anchor_world_pos = ANCHOR_WORLD_POSES[anchor_id]["position"]
     anchor_world_rot = ANCHOR_WORLD_POSES[anchor_id]["rotation"]
 
-    # camera_T cancels in inv(camera_T_anchor) @ camera_T_hmd. Convert the
-    # right-handed printed-marker axes to Unity's room axes. With the printed
-    # face pointing toward room +Z, printed +X maps to room -X.
+    # camera_T cancels in inv(camera_T_anchor) @ camera_T_hmd. For the current
+    # physical installation, the printed marker axes align with the surveyed
+    # Unity room axes.
     world_pos = (
         anchor_world_pos
         + anchor_world_rot @ MARKER_TO_UNITY @ rel_T[:3, 3]
