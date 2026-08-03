@@ -20,7 +20,11 @@ class AveragedHmdWorldPoseTests(unittest.TestCase):
         anchor_position = np.array([-0.9398, 2.4257, -2.4638])
         anchor_T = np.eye(4)
         hmd_T = np.eye(4)
-        hmd_T[:3, 3] = -anchor_position
+        hmd_T[:3, 3] = np.array([
+            anchor_position[0],
+            -anchor_position[1],
+            -anchor_position[2],
+        ])
         synthetic_pose = {
             101: {"position": anchor_position, "rotation": np.eye(3)}
         }
