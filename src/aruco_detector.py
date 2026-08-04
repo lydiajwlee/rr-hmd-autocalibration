@@ -226,6 +226,12 @@ def run_webcam(
             if 'image_size' in data.files
             else None
         )
+        if calibrated_size is None:
+            cap.release()
+            raise RuntimeError(
+                "Intrinsics file has no resolution metadata and is from the "
+                "old calibration. Recapture and recalibrate before detection."
+            )
         print(f"[aruco_detector] Loaded K matrix from {intrinsics_path}")
     else:
         ret, frame = cap.read()

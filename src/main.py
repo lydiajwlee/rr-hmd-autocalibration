@@ -33,10 +33,16 @@ def on_pose_detected(anchor_transforms, hmd_T):
     return world_pos, quat, relative_pos
 
 if __name__ == "__main__":
+    intrinsics_path = os.path.join(
+        os.path.dirname(__file__),
+        "..",
+        "webcam_calibration",
+        "intrinsics.npz",
+    )
     # ── Pick ONE camera source ──────────────────────────────────────────────
     run_webcam(
         on_pose_detected,
-        intrinsics_path="webcam_calibration/intrinsics.npz",
+        intrinsics_path=intrinsics_path,
         stop_after_detection=False,  # live single-anchor pose display test
     )
     # run(on_pose_detected)        # ZED streaming

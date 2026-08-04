@@ -4,7 +4,8 @@ import os
 
 
 # ── CONFIG ──────────────────────────────────────────────────────────────────
-SAVE_DIR     = "webcam_calibration/images"
+SCRIPT_DIR   = os.path.dirname(os.path.abspath(__file__))
+SAVE_DIR     = os.path.join(SCRIPT_DIR, "images")
 CAMERA_INDEX = 0
 CAMERA_WIDTH = 3840
 CAMERA_HEIGHT = 2160
@@ -97,4 +98,3 @@ while True:
 cap.release()
 cv2.destroyAllWindows()
 print(f"Done. {count} images saved.")
-

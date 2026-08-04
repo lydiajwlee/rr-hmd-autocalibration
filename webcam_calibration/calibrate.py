@@ -5,8 +5,9 @@ import glob
 
 
 # ── CONFIG ──────────────────────────────────────────────────────────────────
-IMAGES_DIR = "webcam_calibration/images"
-SAVE_PATH  = "webcam_calibration/intrinsics.npz"
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+IMAGES_DIR = os.path.join(SCRIPT_DIR, "images")
+SAVE_PATH  = os.path.join(SCRIPT_DIR, "intrinsics.npz")
 
 
 CHARUCO_SQUARES_X = 7
@@ -70,4 +71,3 @@ print("K matrix:\n", K)
 
 np.savez(SAVE_PATH, K=K, dist=dist, image_size=np.array(img_size))
 print(f"\nSaved to {SAVE_PATH}")
-
