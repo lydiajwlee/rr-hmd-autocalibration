@@ -222,6 +222,10 @@ unity/Assets/Scripts/
   OneShotCalibrationReceiver.cs
   CalibrationSceneTransition.cs
 
+resources/unity-starter-kit/
+  OSCPoseReceiver.cs       Placeholder for the working Unity OSC receiver
+  SETUP.txt                Copy, network, and transport-test instructions
+
 tests/
   test_pose_calculator.py Synthetic pose/extrinsics validation
   test_relative_pose.py   Historical single-anchor manual test

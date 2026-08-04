@@ -1,0 +1,149 @@
+REALITY ROOST OSC / UNITY STARTER KIT
+=====================================
+
+Purpose
+-------
+This folder is a handoff point between the Python tracking repository and the
+Unity project. It does not implement passthrough or scene switching. Its only
+goal is to test:
+
+    Python calculates HMD world pose
+        -> Python sends OSC
+        -> Unity receives OSC
+        -> Unity places the XR Rig
+
+
+Files
+-----
+OSCPoseReceiver.cs
+    A comment-only placeholder. Replace its contents with the known-working
+    OSCPoseReceiver.cs from the Unity development computer.
+
+
+OSC contract
+------------
+Address: /markers
+Port:    9000
+
+Payload order:
+
+    0  marker ID (int; HMD is 0)
+    1  world position X
+    2  world position Y
+    3  world position Z
+    4  world quaternion X
+    5  world quaternion Y
+    6  world quaternion Z
+    7  world quaternion W
+    8  Unix timestamp
+
+Python sends from src/osc_sender.py.
+
+
+Copy order
+----------
+1. On the Unity computer, find the working OSCPoseReceiver.cs file.
+
+2. Copy its complete contents into:
+
+       resources/unity-starter-kit/OSCPoseReceiver.cs
+
+3. Commit and push that file from the computer where it was copied.
+
+4. On the computer containing the Unity project, copy OSCPoseReceiver.cs into
+   the Unity project's Assets/Scripts folder (or its existing scripts folder).
+
+5. Wait for Unity to compile the script.
+
+6. Attach OSCPoseReceiver to the XR Rig if it is not already attached.
+
+7. Configure the receiver to listen on port 9000 and address /markers.
+
+8. Confirm that the receiver assigns position XYZ and quaternion XYZW in the
+   same order used by the OSC contract above.
+
+
+Network setup
+-------------
+The default Python destination is:
+
+    OSC_IP = "127.0.0.1"
+
+Use this only when Python and the Unity Editor run on the same computer.
+
+If Python and Unity run on different computers, change OSC_IP in
+src/osc_sender.py to the Unity computer's local-network IPv4 address. Both
+computers must be on the same network, and UDP port 9000 must be allowed by the
+receiving computer's firewall.
+
+Do not use 127.0.0.1 to send from one computer to another.
+
+
+Test order
+----------
+1. Start the Unity project.
+
+2. Enter Play Mode.
+
+3. Confirm that OSCPoseReceiver is enabled and listening on UDP port 9000.
+
+4. From the Python repository root, run:
+
+       python3 src/main.py
+
+5. Make HMD marker 0 and wall anchors 100 and 101 visible simultaneously.
+
+6. Confirm that the Python camera window shows:
+
+       HMD world XYZ
+       HMD world XYZW
+       Anchor reprojection error
+
+7. Confirm that the anchor reprojection error is at most 2.0 pixels.
+
+8. Check the Unity Console for the received marker ID, position, and
+   quaternion.
+
+9. Compare Unity's XR Rig transform with the HMD world pose shown by Python.
+
+10. Press Q to stop Python.
+
+
+Repeating a test
+----------------
+The current Python entry point sends OSC only once per process. To run another
+test:
+
+1. Stop Python with Q.
+2. Stop and restart Unity Play Mode if the receiver has a calibration flag.
+3. Run python3 src/main.py again.
+
+
+Expected limitations during this starter test
+---------------------------------------------
+- Python reports the pose of the center of physical marker 0.
+- The marker center may not equal the Quest camera or XR Rig origin.
+- A marker-to-headset offset will be needed for final physical alignment.
+- Lerp/slerp in an older Unity receiver is unnecessary for a one-shot pose, but
+  it does not need to be removed merely to confirm OSC transport.
+- Passthrough and scene-transition logic are intentionally outside this kit.
+
+
+Quick troubleshooting
+---------------------
+No message in Unity:
+    - Start Unity before Python.
+    - Verify port 9000 and address /markers.
+    - Verify OSC_IP.
+    - Check the firewall.
+    - Confirm all three markers are visible.
+
+Message arrives but pose fields are wrong:
+    - Check payload indices.
+    - Confirm quaternion order is X, Y, Z, W.
+    - Confirm marker ID 0 is accepted.
+
+Pose is close but the rig has a constant physical offset:
+    - Measure the transform from marker 0 to the headset tracking origin.
+    - Apply that marker-to-headset transform in Unity or Python later.
+
