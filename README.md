@@ -24,7 +24,7 @@ Camera detects HMD marker 0 and solves camera_T_hmd
         ↓
 world_T_hmd = world_T_camera @ camera_T_hmd
         ↓
-Python sends one OSC world pose to Unity
+Python sends the OSC world pose (continuous during integration testing)
         ↓
 Unity places the XR Rig and exits passthrough
         ↓
@@ -165,8 +165,10 @@ From the repository root:
 python3 src/main.py
 ```
 
-The current test configuration keeps the camera window open and continuously
-updates the pose overlay, while OSC is sent only once. Press `Q` to stop.
+The current integration-test configuration keeps the camera window open and
+sends every valid pose while `CONTINUOUS_OSC_TEST = True`. Moving or rotating
+marker 0 should drive the Unity rig live. Set the flag to `False` to restore
+the intended one-shot calibration behavior. Press `Q` to stop.
 
 The overlay contains:
 

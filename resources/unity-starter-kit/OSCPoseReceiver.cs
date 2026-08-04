@@ -13,6 +13,10 @@ public class OSCPoseReceiver : MonoBehaviour
     public Transform calibrationOffset;
     public Transform xrCamera; // Assign XR Origin/Camera Offset/Main Camera
 
+    [Header("Marker-to-Head Alignment")]
+    [Tooltip("Fixed Euler rotation from marker 0 to the headset tracking frame.")]
+    public Vector3 markerToHeadEulerOffset = Vector3.zero;
+
     [Header("Smoothing")]
     [Range(0f, 1f)]
     public float positionSmoothSpeed = 0.1f;
@@ -70,6 +74,12 @@ public class OSCPoseReceiver : MonoBehaviour
             message.Values[7].FloatValue
         ).normalized;
 
+        Quaternion markerToHeadRotation =
+            Quaternion.Euler(markerToHeadEulerOffset);
+
+        Quaternion detectedHeadRotation =
+            detectedHmdRotation * markerToHeadRotation;
+
         /*
          * Find the camera's tracking pose relative to CalibrationOffset.
          *
@@ -86,7 +96,7 @@ public class OSCPoseReceiver : MonoBehaviour
             xrCamera.rotation;
 
         targetRotation =
-            detectedHmdRotation *
+            detectedHeadRotation *
             Quaternion.Inverse(cameraLocalRotation);
 
         targetPosition =

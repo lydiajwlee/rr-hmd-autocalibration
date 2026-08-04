@@ -109,10 +109,35 @@ Test order
 10. Press Q to stop Python.
 
 
-Repeating a test
-----------------
-The current Python entry point sends OSC only once per process. To run another
-test:
+Continuous tracking test
+------------------------
+src/main.py currently has:
+
+    CONTINUOUS_OSC_TEST = True
+
+In this mode, every valid frame is sent to Unity. Moving and rotating marker 0
+should move and rotate the XR Rig continuously. Anchors 100 and 101 must remain
+visible, and frames above the 2.0-pixel anchor reprojection threshold are not
+sent.
+
+For every valid frame, the Python terminal also prints:
+
+    [pose] pos=(x, y, z) quat=(x, y, z, w) anchor_error=...px
+
+If the rig tracks rotation but appears upside down, marker 0's coordinate frame
+does not match the headset tracking frame. In the OSCPoseReceiver Inspector,
+adjust Marker To Head Euler Offset. A marker mounted upside down commonly needs
+180 degrees around X or Z, but the correct axis depends on the physical mount.
+This is a fixed mounting offset; do not change it while tracking.
+
+To restore the final one-shot behavior, set:
+
+    CONTINUOUS_OSC_TEST = False
+
+Repeating a one-shot test
+-------------------------
+When CONTINUOUS_OSC_TEST is False, Python sends OSC only once per process. To
+run another one-shot test:
 
 1. Stop Python with Q.
 2. Stop and restart Unity Play Mode if the receiver has a calibration flag.
@@ -146,4 +171,3 @@ Message arrives but pose fields are wrong:
 Pose is close but the rig has a constant physical offset:
     - Measure the transform from marker 0 to the headset tracking origin.
     - Apply that marker-to-headset transform in Unity or Python later.
-

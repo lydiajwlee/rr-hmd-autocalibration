@@ -16,6 +16,7 @@ from osc_sender import OSCSender
 sender = OSCSender()
 calibration_sent = False
 MAX_ANCHOR_REPROJECTION_ERROR = 2.0  # pixels
+CONTINUOUS_OSC_TEST = True  # Move/rotate marker 0 to drive the Unity rig live
 # ────────────────────────────────────────────────────────────────────────────
 
 def on_pose_detected(anchor_image_corners, hmd_T, K, dist):
@@ -31,16 +32,26 @@ def on_pose_detected(anchor_image_corners, hmd_T, K, dist):
         )
     )
 
-    if (
-        not calibration_sent
-        and reprojection_error <= MAX_ANCHOR_REPROJECTION_ERROR
-    ):
-        print(f"[main] anchors={ANCHOR_IDS} "
-              f"pos=({world_pos[0]:.3f}, {world_pos[1]:.3f}, {world_pos[2]:.3f}) "
-              f"quat=({quat[0]:.3f}, {quat[1]:.3f}, {quat[2]:.3f}, {quat[3]:.3f})")
+    pose_is_valid = reprojection_error <= MAX_ANCHOR_REPROJECTION_ERROR
+    should_send = CONTINUOUS_OSC_TEST or not calibration_sent
 
-        # Send OSC only once while the camera overlay keeps updating.
+    if pose_is_valid:
+        print(
+            f"[pose] pos=({world_pos[0]:.3f}, {world_pos[1]:.3f}, "
+            f"{world_pos[2]:.3f}) "
+            f"quat=({quat[0]:.3f}, {quat[1]:.3f}, "
+            f"{quat[2]:.3f}, {quat[3]:.3f}) "
+            f"anchor_error={reprojection_error:.3f}px",
+            flush=True,
+        )
+
+    if pose_is_valid and should_send:
         sender.send_pose(HMD_ID, world_pos, quat)
+
+        if not calibration_sent:
+            mode = "continuous test" if CONTINUOUS_OSC_TEST else "one shot"
+            print(f"[main] OSC started ({mode}) anchors={ANCHOR_IDS}")
+
         calibration_sent = True
     # ───────────────────────────────────────────────────────────────────────
 
