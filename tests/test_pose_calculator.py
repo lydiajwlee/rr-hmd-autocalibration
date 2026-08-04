@@ -3,6 +3,7 @@ import sys
 import unittest
 from unittest.mock import patch
 
+import cv2
 import numpy as np
 from scipy.spatial.transform import Rotation
 
@@ -10,12 +11,47 @@ sys.path.insert(0, str(pathlib.Path(__file__).parents[1] / "src"))
 
 from pose_calculator import (
     ANCHOR_WORLD_POSES,
+    anchor_world_corners_cv,
     averaged_hmd_world_pose,
+    hmd_world_pose_from_anchor_extrinsics,
     hmd_world_pose,
 )
 
 
 class AveragedHmdWorldPoseTests(unittest.TestCase):
+    def test_joint_anchor_extrinsics_recovers_hmd_world_position(self):
+        marker_size = 0.179
+        K = np.array([
+            [1000.0, 0.0, 960.0],
+            [0.0, 1000.0, 540.0],
+            [0.0, 0.0, 1.0],
+        ])
+        dist = np.zeros(5)
+        camera_rvec = np.zeros(3)
+        camera_tvec = np.array([0.0, 0.0, 5.0])
+        image_corners = {}
+        for anchor_id in (100, 101):
+            projected, _ = cv2.projectPoints(
+                anchor_world_corners_cv(anchor_id, marker_size),
+                camera_rvec,
+                camera_tvec,
+                K,
+                dist,
+            )
+            image_corners[anchor_id] = projected.reshape(4, 2)
+
+        expected_position = np.array([0.2, 1.0, -0.5])
+        hmd_T = np.eye(4)
+        hmd_T[:3, 3] = np.array([0.2, -1.0, 4.5])
+
+        position, quaternion, error = hmd_world_pose_from_anchor_extrinsics(
+            image_corners, hmd_T, K, dist, marker_size
+        )
+
+        np.testing.assert_allclose(position, expected_position, atol=1e-6)
+        self.assertAlmostEqual(np.linalg.norm(quaternion), 1.0)
+        self.assertLess(error, 1e-5)
+
     def test_anchor_relative_transform_recovers_world_origin(self):
         anchor_position = np.array([-0.9398, 2.4257, -2.4638])
         anchor_T = np.eye(4)

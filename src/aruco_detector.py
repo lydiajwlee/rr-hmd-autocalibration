@@ -13,10 +13,10 @@ DETECTOR_PARAMS = cv2.aruco.DetectorParameters()
 DETECTOR_PARAMS.cornerRefinementMethod = cv2.aruco.CORNER_REFINE_SUBPIX
 DETECTOR = cv2.aruco.ArucoDetector(ARUCO_DICT, DETECTOR_PARAMS)
 
-ANCHOR_IDS  = (101,)      # Test mode: require only wall marker 101
+ANCHOR_IDS  = (100, 101)  # Both wall markers define camera extrinsics
 HMD_ID      = 0           # HMD marker
 ANCHOR_MARKER_SIZE = 0.179  # 179 mm, in meters
-HMD_MARKER_SIZE    = 0.096  # 96 mm, in meters
+HMD_MARKER_SIZE    = 0.100  # 100 mm, in meters
 DETECTION_ZOOM = 1.0  # validate new 4K intrinsics before adding digital zoom
 
 WEBCAM_WIDTH  = 3840
@@ -85,12 +85,13 @@ def get_pose(corners, marker_size, K, dist):
 def detect_markers(gray, K, dist):
     """Detect both wall anchors and the HMD marker in one grayscale frame.
 
-    Returns ({anchor_id: camera_T_anchor}, camera_T_hmd, corners, ids).
-    The anchor dictionary can be incomplete when one or both anchors are hidden.
+    Returns camera transforms, anchor image corners, HMD transform, and raw
+    ArUco results. Anchor dictionaries can be incomplete while markers hide.
     """
     corners, ids, _ = DETECTOR.detectMarkers(gray)
 
     anchor_transforms = {}
+    anchor_image_corners = {}
     hmd_T             = None
 
     if ids is not None:
@@ -107,10 +108,11 @@ def detect_markers(gray, K, dist):
                 continue
             if marker_id in ANCHOR_IDS:
                 anchor_transforms[int(marker_id)] = T
+                anchor_image_corners[int(marker_id)] = corners[i].reshape(4, 2)
             elif marker_id == HMD_ID:
                 hmd_T = T
 
-    return anchor_transforms, hmd_T, corners, ids
+    return anchor_transforms, anchor_image_corners, hmd_T, corners, ids
 
 def draw_world_pose(frame, world_pose):
     """Draw an HMD world position and quaternion on a camera frame."""
@@ -124,11 +126,7 @@ def draw_world_pose(frame, world_pose):
         f"{quaternion[2]:.3f}, {quaternion[3]:.3f}",
     ]
     if len(world_pose) > 2:
-        relative = world_pose[2]
-        lines.append(
-            f"Anchor->HMD XYZ: {relative[0]:.3f}, {relative[1]:.3f}, "
-            f"{relative[2]:.3f} m"
-        )
+        lines.append(f"Anchor reprojection error: {world_pose[2]:.3f} px")
     for index, line in enumerate(lines):
         cv2.putText(
             frame, line, (20, 35 + index * 32),
@@ -172,7 +170,13 @@ def run(on_pose_detected, stop_after_detection=True):
             detection_frame, detection_K = zoom_detection_frame(frame_bgr, K)
             gray = cv2.cvtColor(detection_frame, cv2.COLOR_BGR2GRAY)
 
-            anchor_transforms, hmd_T, corners, ids = detect_markers(
+            (
+                anchor_transforms,
+                anchor_image_corners,
+                hmd_T,
+                corners,
+                ids,
+            ) = detect_markers(
                 gray, detection_K, dist
             )
 
@@ -183,8 +187,14 @@ def run(on_pose_detected, stop_after_detection=True):
                 anchor_id in anchor_transforms for anchor_id in ANCHOR_IDS
             )
             if not calibrated and anchors_ready and hmd_T is not None:
-                last_world_pose = on_pose_detected(anchor_transforms, hmd_T)
-                if stop_after_detection:
+                last_world_pose = on_pose_detected(
+                    anchor_image_corners, hmd_T, detection_K, dist
+                )
+                pose_is_valid = (
+                    last_world_pose is not None
+                    and last_world_pose[2] <= 2.0
+                )
+                if stop_after_detection and pose_is_valid:
                     calibrated = True
                     print("[aruco_detector] Calibration captured; stopping detection")
 
@@ -274,7 +284,13 @@ def run_webcam(
 
             detection_frame, detection_K = zoom_detection_frame(frame, K)
             gray = cv2.cvtColor(detection_frame, cv2.COLOR_BGR2GRAY)
-            anchor_transforms, hmd_T, corners, ids = detect_markers(
+            (
+                anchor_transforms,
+                anchor_image_corners,
+                hmd_T,
+                corners,
+                ids,
+            ) = detect_markers(
                 gray, detection_K, dist
             )
 
@@ -285,8 +301,14 @@ def run_webcam(
                 anchor_id in anchor_transforms for anchor_id in ANCHOR_IDS
             )
             if not calibrated and anchors_ready and hmd_T is not None:
-                last_world_pose = on_pose_detected(anchor_transforms, hmd_T)
-                if stop_after_detection:
+                last_world_pose = on_pose_detected(
+                    anchor_image_corners, hmd_T, detection_K, dist
+                )
+                pose_is_valid = (
+                    last_world_pose is not None
+                    and last_world_pose[2] <= 2.0
+                )
+                if stop_after_detection and pose_is_valid:
                     calibrated = True
                     print("[aruco_detector] Calibration captured; stopping detection")
 

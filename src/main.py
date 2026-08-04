@@ -2,25 +2,39 @@ import sys
 import os
 sys.path.append(os.path.dirname(__file__))
 
-from aruco_detector import run, run_webcam, HMD_ID, ANCHOR_IDS
-from pose_calculator import anchor_to_hmd_pose, averaged_hmd_world_pose
+from aruco_detector import (
+    ANCHOR_IDS,
+    ANCHOR_MARKER_SIZE,
+    HMD_ID,
+    run,
+    run_webcam,
+)
+from pose_calculator import hmd_world_pose_from_anchor_extrinsics
 
 # ── OSC (uncomment when sending to Unity) ──────────────────────────────────
 from osc_sender import OSCSender
 sender = OSCSender()
 calibration_sent = False
+MAX_ANCHOR_REPROJECTION_ERROR = 2.0  # pixels
 # ────────────────────────────────────────────────────────────────────────────
 
-def on_pose_detected(anchor_transforms, hmd_T):
+def on_pose_detected(anchor_image_corners, hmd_T, K, dist):
     global calibration_sent
 
-    world_pos, quat = averaged_hmd_world_pose(anchor_transforms, hmd_T)
-    anchor_id = ANCHOR_IDS[0]
-    relative_pos = anchor_to_hmd_pose(
-        anchor_transforms[anchor_id], hmd_T
-    )[:3, 3]
+    world_pos, quat, reprojection_error = (
+        hmd_world_pose_from_anchor_extrinsics(
+            anchor_image_corners,
+            hmd_T,
+            K,
+            dist,
+            ANCHOR_MARKER_SIZE,
+        )
+    )
 
-    if not calibration_sent:
+    if (
+        not calibration_sent
+        and reprojection_error <= MAX_ANCHOR_REPROJECTION_ERROR
+    ):
         print(f"[main] anchors={ANCHOR_IDS} "
               f"pos=({world_pos[0]:.3f}, {world_pos[1]:.3f}, {world_pos[2]:.3f}) "
               f"quat=({quat[0]:.3f}, {quat[1]:.3f}, {quat[2]:.3f}, {quat[3]:.3f})")
@@ -30,7 +44,7 @@ def on_pose_detected(anchor_transforms, hmd_T):
         calibration_sent = True
     # ───────────────────────────────────────────────────────────────────────
 
-    return world_pos, quat, relative_pos
+    return world_pos, quat, reprojection_error
 
 if __name__ == "__main__":
     intrinsics_path = os.path.join(
@@ -43,7 +57,7 @@ if __name__ == "__main__":
     run_webcam(
         on_pose_detected,
         intrinsics_path=intrinsics_path,
-        stop_after_detection=False,  # live single-anchor pose display test
+        stop_after_detection=False,  # live joint-extrinsics display test
     )
     # run(on_pose_detected)        # ZED streaming
     # ────────────────────────────────────────────────────────────────────────

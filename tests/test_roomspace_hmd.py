@@ -13,7 +13,7 @@ ANCHOR_ID   = 101   # Fixed anchor marker at -37, 34.25, 0 inches -> -0.9398, 0.
 HMD_ID      = 0     # HMD marker
 
 ANCHOR_MARKER_SIZE = 0.179  # meters
-HMD_MARKER_SIZE    = 0.096  # meters
+HMD_MARKER_SIZE    = 0.100  # meters
 
 CAMERA_IP   = "192.168.50.3"
 CAMERA_PORT = 30000
