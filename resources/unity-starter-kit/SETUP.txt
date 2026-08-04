@@ -125,10 +125,17 @@ For every valid frame, the Python terminal also prints:
     [pose] pos=(x, y, z) quat=(x, y, z, w) anchor_error=...px
 
 If the rig tracks rotation but appears upside down, marker 0's coordinate frame
-does not match the headset tracking frame. In the OSCPoseReceiver Inspector,
-adjust Marker To Head Euler Offset. A marker mounted upside down commonly needs
-180 degrees around X or Z, but the correct axis depends on the physical mount.
-This is a fixed mounting offset; do not change it while tracking.
+does not match the headset tracking frame. Python currently uses:
+
+    AUTO_ZERO_HMD_ROTATION = True
+
+Hold marker 0 in the orientation that should be considered upright before the
+first valid pose. Python treats that first marker rotation as the neutral world
+rotation and sends corrected relative rotations afterward.
+
+For a manually measured production offset, set AUTO_ZERO_HMD_ROTATION to False
+and apply the fixed marker-to-head transform in Python. The Unity receiver does
+not need to perform the automatic neutral-orientation calculation.
 
 To restore the final one-shot behavior, set:
 

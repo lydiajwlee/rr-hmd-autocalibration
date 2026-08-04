@@ -1,5 +1,6 @@
 import sys
 import os
+from scipy.spatial.transform import Rotation
 sys.path.append(os.path.dirname(__file__))
 
 from aruco_detector import (
@@ -17,10 +18,12 @@ sender = OSCSender()
 calibration_sent = False
 MAX_ANCHOR_REPROJECTION_ERROR = 2.0  # pixels
 CONTINUOUS_OSC_TEST = True  # Move/rotate marker 0 to drive the Unity rig live
+AUTO_ZERO_HMD_ROTATION = True  # First valid marker orientation becomes upright
+marker_rotation_offset = None
 # ────────────────────────────────────────────────────────────────────────────
 
 def on_pose_detected(anchor_image_corners, hmd_T, K, dist):
-    global calibration_sent
+    global calibration_sent, marker_rotation_offset
 
     world_pos, quat, reprojection_error = (
         hmd_world_pose_from_anchor_extrinsics(
@@ -34,6 +37,16 @@ def on_pose_detected(anchor_image_corners, hmd_T, K, dist):
 
     pose_is_valid = reprojection_error <= MAX_ANCHOR_REPROJECTION_ERROR
     should_send = CONTINUOUS_OSC_TEST or not calibration_sent
+
+    if pose_is_valid and AUTO_ZERO_HMD_ROTATION:
+        marker_rotation = Rotation.from_quat(quat)
+        if marker_rotation_offset is None:
+            marker_rotation_offset = marker_rotation.inv()
+            print(
+                "[main] Captured first HMD marker orientation as upright",
+                flush=True,
+            )
+        quat = (marker_rotation * marker_rotation_offset).as_quat()
 
     if pose_is_valid:
         print(
