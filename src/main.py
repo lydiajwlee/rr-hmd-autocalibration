@@ -15,8 +15,8 @@ from pose_calculator import hmd_world_pose_from_anchor_extrinsics
 from osc_sender import OSCSender
 sender = OSCSender()
 calibration_sent = False
-MAX_ANCHOR_REPROJECTION_ERROR = 2.0  # pixels
-CONTINUOUS_OSC_TEST = True  # Move/rotate marker 0 to drive the Unity rig live
+CONTINUOUS_OSC_TEST = True  # Move/rotate marker 0 to drive the Unity cube live
+MAX_ANCHOR_REPROJECTION_ERROR = 5.0 if CONTINUOUS_OSC_TEST else 2.0  # pixels
 # ────────────────────────────────────────────────────────────────────────────
 
 def on_pose_detected(anchor_image_corners, hmd_T, K, dist):

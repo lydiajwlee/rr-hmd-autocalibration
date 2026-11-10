@@ -4,11 +4,12 @@ using extOSC;
 public class OSCPoseReceiver : MonoBehaviour
 {
     [Header("OSC Settings")]
-    public int port = 9000;
+    public int port = 9001;
     public string address = "/markers";
     public int expectedMarkerId = 0;
 
     [Header("References")]
+    public Transform poseTarget;
     public Transform calibrationOffset;
     public Transform xrCamera; // Assign XR Origin/Camera Offset/Main Camera
 
@@ -26,10 +27,10 @@ public class OSCPoseReceiver : MonoBehaviour
 
     void Start()
     {
-        if (calibrationOffset == null || xrCamera == null)
+        if (poseTarget == null && (calibrationOffset == null || xrCamera == null))
         {
             Debug.LogError(
-                "[OSCPoseReceiver] Calibration Offset and XR Camera must be assigned."
+                "[OSCPoseReceiver] Assign a Pose Target or both Calibration Offset and XR Camera."
             );
             enabled = false;
             return;
@@ -68,6 +69,12 @@ public class OSCPoseReceiver : MonoBehaviour
             message.Values[6].FloatValue,
             message.Values[7].FloatValue
         ).normalized;
+
+        if (poseTarget != null)
+        {
+            poseTarget.SetPositionAndRotation(detectedHmdPosition, detectedHmdRotation);
+            return;
+        }
 
         /*
          * Find the camera's tracking pose relative to CalibrationOffset.
