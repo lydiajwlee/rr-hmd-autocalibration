@@ -82,7 +82,12 @@ while True:
                 (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 0), 2)
 
 
-    cv2.imshow("Webcam Calibration", display)
+    # Fit the live preview on screen while saving the full camera frame.
+    preview_scale = min(1280 / display.shape[1], 720 / display.shape[0], 1.0)
+    preview = cv2.resize(
+        display, None, fx=preview_scale, fy=preview_scale, interpolation=cv2.INTER_AREA
+    )
+    cv2.imshow("Webcam Calibration", preview)
 
 
     key = cv2.waitKey(1) & 0xFF

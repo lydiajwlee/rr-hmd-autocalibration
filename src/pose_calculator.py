@@ -99,10 +99,13 @@ def hmd_world_pose_from_anchor_extrinsics(
     world_cv_T_hmd = world_cv_T_camera @ hmd_T
 
     world_position = UNITY_TO_CV_WORLD @ world_cv_T_hmd[:3, 3]
+    
+    # Unity-local axes of the HMD: X = marker left, Y = marker up, Z = out of marker face
+    MARKER_LOCAL_TO_UNITY_LOCAL = np.diag([-1.0, 1.0, 1.0])
     world_rotation = (
         UNITY_TO_CV_WORLD
         @ world_cv_T_hmd[:3, :3]
-        @ UNITY_TO_CV_WORLD
+        @ MARKER_LOCAL_TO_UNITY_LOCAL
     )
     quaternion = Rotation.from_matrix(world_rotation).as_quat()
     return world_position, quaternion, reprojection_error

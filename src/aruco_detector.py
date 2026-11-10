@@ -218,32 +218,30 @@ def run_webcam(
     stop_after_detection=True,
 ):
     """Detect an anchor/HMD pose once, or continuously in live test mode."""
+    requested_size = (WEBCAM_WIDTH, WEBCAM_HEIGHT)
+    if intrinsics_path is not None:
+        with np.load(intrinsics_path) as data:
+            if 'image_size' not in data.files:
+                raise RuntimeError(
+                    "Intrinsics file has no resolution metadata and is from the "
+                    "old calibration. Recapture and recalibrate before detection."
+                )
+            requested_size = tuple(int(value) for value in data['image_size'])
+            K = data['K']
+            dist = data['dist']
+        print(f"[aruco_detector] Loaded K matrix from {intrinsics_path}")
+
+    requested_width, requested_height = requested_size
     cap = cv2.VideoCapture(camera_index)
     cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, WEBCAM_WIDTH)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, WEBCAM_HEIGHT)
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, requested_width)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, requested_height)
 
     if not cap.isOpened():
         print("[aruco_detector] Webcam connection failed")
         return
 
-    if intrinsics_path is not None:
-        data = np.load(intrinsics_path)
-        K    = data['K']
-        dist = data['dist']
-        calibrated_size = (
-            tuple(int(value) for value in data['image_size'])
-            if 'image_size' in data.files
-            else None
-        )
-        if calibrated_size is None:
-            cap.release()
-            raise RuntimeError(
-                "Intrinsics file has no resolution metadata and is from the "
-                "old calibration. Recapture and recalibrate before detection."
-            )
-        print(f"[aruco_detector] Loaded K matrix from {intrinsics_path}")
-    else:
+    if intrinsics_path is None:
         ret, frame = cap.read()
         if not ret:
             print("[aruco_detector] Failed to read frame")
@@ -261,18 +259,17 @@ def run_webcam(
         f"[aruco_detector] Webcam connected at "
         f"{actual_width}x{actual_height} — press Q to quit"
     )
-    if (actual_width, actual_height) != (WEBCAM_WIDTH, WEBCAM_HEIGHT):
-        print(
-            f"[aruco_detector] Requested {WEBCAM_WIDTH}x{WEBCAM_HEIGHT}, "
-            f"using camera-provided {actual_width}x{actual_height}"
-        )
-    if intrinsics_path is not None and calibrated_size is not None:
-        if calibrated_size != (actual_width, actual_height):
+    if (actual_width, actual_height) != requested_size:
+        if intrinsics_path is not None:
             cap.release()
             raise RuntimeError(
-                f"Intrinsics are for {calibrated_size[0]}x{calibrated_size[1]}, "
+                f"Intrinsics are for {requested_width}x{requested_height}, "
                 f"but webcam is {actual_width}x{actual_height}"
             )
+        print(
+            f"[aruco_detector] Requested {requested_width}x{requested_height}, "
+            f"using camera-provided {actual_width}x{actual_height}"
+        )
     calibrated = False
     last_world_pose = None
 
@@ -294,9 +291,6 @@ def run_webcam(
                 gray, detection_K, dist
             )
 
-            if ids is not None:
-                cv2.aruco.drawDetectedMarkers(detection_frame, corners, ids)
-
             anchors_ready = all(
                 anchor_id in anchor_transforms for anchor_id in ANCHOR_IDS
             )
@@ -312,10 +306,20 @@ def run_webcam(
                     calibrated = True
                     print("[aruco_detector] Calibration captured; stopping detection")
 
-            draw_world_pose(detection_frame, last_world_pose)
-
             if not calibrated:
-                cv2.imshow("Webcam ArUco", detection_frame)
+                height, width = detection_frame.shape[:2]
+                scale = min(1280 / width, 720 / height, 1.0)
+                preview = detection_frame
+                if scale < 1.0:
+                    preview = cv2.resize(
+                        detection_frame, None, fx=scale, fy=scale,
+                        interpolation=cv2.INTER_AREA,
+                    )
+                if ids is not None:
+                    preview_corners = [corner * scale for corner in corners]
+                    cv2.aruco.drawDetectedMarkers(preview, preview_corners, ids)
+                draw_world_pose(preview, last_world_pose)
+                cv2.imshow("Webcam ArUco", preview)
             if not calibrated and cv2.waitKey(1) & 0xFF == ord('q'):
                 break
 

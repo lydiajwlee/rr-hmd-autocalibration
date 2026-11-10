@@ -35,15 +35,15 @@ def on_pose_detected(anchor_image_corners, hmd_T, K, dist):
     pose_is_valid = reprojection_error <= MAX_ANCHOR_REPROJECTION_ERROR
     should_send = CONTINUOUS_OSC_TEST or not calibration_sent
 
-    if pose_is_valid:
-        print(
-            f"[pose] pos=({world_pos[0]:.3f}, {world_pos[1]:.3f}, "
-            f"{world_pos[2]:.3f}) "
-            f"quat=({quat[0]:.3f}, {quat[1]:.3f}, "
-            f"{quat[2]:.3f}, {quat[3]:.3f}) "
-            f"anchor_error={reprojection_error:.3f}px",
-            flush=True,
-        )
+    status = "valid" if pose_is_valid else "rejected"
+    print(
+        f"[pose] {status} world_xyz_m=({world_pos[0]:.3f}, {world_pos[1]:.3f}, "
+        f"{world_pos[2]:.3f}) "
+        f"quat_xyzw=({quat[0]:.3f}, {quat[1]:.3f}, "
+        f"{quat[2]:.3f}, {quat[3]:.3f}) "
+        f"anchor_error={reprojection_error:.3f}px",
+        flush=True,
+    )
 
     if pose_is_valid and should_send:
         sender.send_pose(HMD_ID, world_pos, quat)
