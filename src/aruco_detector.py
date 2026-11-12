@@ -1,5 +1,6 @@
 import cv2
 import numpy as np
+from collections import deque
 
 try:
     import pyzed.sl as sl
@@ -82,7 +83,7 @@ def get_pose(corners, marker_size, K, dist):
     T[:3, 3]  = tvec.flatten()
     return T
 
-def detect_markers(gray, K, dist):
+def detect_markers(gray, K, dist, *, solve_anchor_poses=True):
     """Detect both wall anchors and the HMD marker in one grayscale frame.
 
     Returns camera transforms, anchor image corners, HMD transform, and raw
@@ -97,6 +98,9 @@ def detect_markers(gray, K, dist):
     if ids is not None:
         for i, marker_id in enumerate(ids.flatten()):
             if marker_id in ANCHOR_IDS:
+                if not solve_anchor_poses:
+                    anchor_image_corners[int(marker_id)] = corners[i].reshape(4, 2)
+                    continue
                 marker_size = ANCHOR_MARKER_SIZE
             elif marker_id == HMD_ID:
                 marker_size = HMD_MARKER_SIZE
@@ -113,6 +117,23 @@ def detect_markers(gray, K, dist):
                 hmd_T = T
 
     return anchor_transforms, anchor_image_corners, hmd_T, corners, ids
+
+
+class AnchorCornerFilter:
+    """Median of recent observations of each stationary wall marker, in pixels."""
+
+    def __init__(self):
+        self.history = {i: deque(maxlen=5) for i in ANCHOR_IDS}
+
+    def update(self, observed):
+        filtered = {}
+        for marker_id, samples in self.history.items():
+            if marker_id not in observed:
+                samples.clear()
+                continue
+            samples.append(observed[marker_id])
+            filtered[marker_id] = np.median(np.stack(samples), axis=0)
+        return filtered
 
 def draw_world_pose(frame, world_pose):
     """Draw an HMD world position and quaternion on a camera frame."""
@@ -272,28 +293,29 @@ def run_webcam(
         )
     calibrated = False
     last_world_pose = None
+    anchor_filter = AnchorCornerFilter()
 
     try:
         while not calibrated:
             ret, frame = cap.read()
             if not ret:
+                anchor_filter.update({})
                 continue
 
             detection_frame, detection_K = zoom_detection_frame(frame, K)
             gray = cv2.cvtColor(detection_frame, cv2.COLOR_BGR2GRAY)
             (
-                anchor_transforms,
+                _,
                 anchor_image_corners,
                 hmd_T,
                 corners,
                 ids,
             ) = detect_markers(
-                gray, detection_K, dist
+                gray, detection_K, dist, solve_anchor_poses=False
             )
 
-            anchors_ready = all(
-                anchor_id in anchor_transforms for anchor_id in ANCHOR_IDS
-            )
+            anchor_image_corners = anchor_filter.update(anchor_image_corners)
+            anchors_ready = all(i in anchor_image_corners for i in ANCHOR_IDS)
             if not calibrated and anchors_ready and hmd_T is not None:
                 last_world_pose = on_pose_detected(
                     anchor_image_corners, hmd_T, detection_K, dist
@@ -316,12 +338,15 @@ def run_webcam(
                         interpolation=cv2.INTER_AREA,
                     )
                 if ids is not None:
-                    preview_corners = [corner * scale for corner in corners]
+                    preview_corners = [
+                        anchor_image_corners.get(int(marker_id), corner).reshape(1, 4, 2) * scale
+                        for marker_id, corner in zip(ids.ravel(), corners)
+                    ]
                     cv2.aruco.drawDetectedMarkers(preview, preview_corners, ids)
                 if anchors_ready and hmd_T is not None:
                     draw_world_pose(preview, last_world_pose)
                 else:
-                    missing = [str(i) for i in ANCHOR_IDS if i not in anchor_transforms]
+                    missing = [str(i) for i in ANCHOR_IDS if i not in anchor_image_corners]
                     if hmd_T is None:
                         missing.append(str(HMD_ID))
                     cv2.putText(

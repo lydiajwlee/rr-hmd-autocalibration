@@ -1,5 +1,9 @@
 import sys
 import os
+import time
+from collections import deque
+
+import numpy as np
 sys.path.append(os.path.dirname(__file__))
 
 from aruco_detector import (
@@ -17,10 +21,12 @@ sender = OSCSender()
 calibration_sent = False
 CONTINUOUS_OSC_TEST = True  # Move/rotate marker 0 to drive the Unity cube live
 MAX_ANCHOR_REPROJECTION_ERROR = 5.0 if CONTINUOUS_OSC_TEST else 2.0  # pixels
+recent_positions = deque(maxlen=3)
+last_valid_time = None
 # ────────────────────────────────────────────────────────────────────────────
 
 def on_pose_detected(anchor_image_corners, hmd_T, K, dist):
-    global calibration_sent
+    global calibration_sent, last_valid_time
 
     world_pos, quat, reprojection_error = (
         hmd_world_pose_from_anchor_extrinsics(
@@ -34,6 +40,15 @@ def on_pose_detected(anchor_image_corners, hmd_T, K, dist):
 
     pose_is_valid = reprojection_error <= MAX_ANCHOR_REPROJECTION_ERROR
     should_send = CONTINUOUS_OSC_TEST or not calibration_sent
+
+    if pose_is_valid and CONTINUOUS_OSC_TEST:
+        now = time.monotonic()
+        if last_valid_time is None or now - last_valid_time > 0.5:
+            recent_positions.clear()
+        recent_positions.append(world_pos)
+        last_valid_time = now
+        if len(recent_positions) == recent_positions.maxlen:
+            world_pos = np.median(recent_positions, axis=0)
 
     status = "valid" if pose_is_valid else "rejected"
     print(
