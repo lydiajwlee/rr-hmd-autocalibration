@@ -318,7 +318,16 @@ def run_webcam(
                 if ids is not None:
                     preview_corners = [corner * scale for corner in corners]
                     cv2.aruco.drawDetectedMarkers(preview, preview_corners, ids)
-                draw_world_pose(preview, last_world_pose)
+                if anchors_ready and hmd_T is not None:
+                    draw_world_pose(preview, last_world_pose)
+                else:
+                    missing = [str(i) for i in ANCHOR_IDS if i not in anchor_transforms]
+                    if hmd_T is None:
+                        missing.append(str(HMD_ID))
+                    cv2.putText(
+                        preview, "Tracking paused - missing pose for ID " + ", ".join(missing),
+                        (20, 35), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 200, 255), 2,
+                    )
                 cv2.imshow("Webcam ArUco", preview)
             if not calibrated and cv2.waitKey(1) & 0xFF == ord('q'):
                 break
