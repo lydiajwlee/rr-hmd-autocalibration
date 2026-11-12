@@ -16,7 +16,7 @@ DETECTOR = cv2.aruco.ArucoDetector(ARUCO_DICT, DETECTOR_PARAMS)
 ANCHOR_IDS  = (100, 101)  # Both wall markers define camera extrinsics
 HMD_ID      = 0           # HMD marker
 ANCHOR_MARKER_SIZE = 0.179  # 179 mm, in meters
-HMD_MARKER_SIZE    = 0.100  # 100 mm, in meters
+HMD_MARKER_SIZE    = 0.032  # Measured outer black square on the headset, in meters
 DETECTION_ZOOM = 1.0  # validate new 4K intrinsics before adding digital zoom
 
 WEBCAM_WIDTH  = 3840

@@ -49,7 +49,7 @@ Unity room coordinates:
 ArUco configuration:
 
 - Dictionary: `DICT_6X6_250`
-- Marker `0`: HMD marker, black-square side length `100 mm`
+- Marker `0`: HMD marker, black-square side length `32 mm`
 - Markers `100` and `101`: wall anchors, black-square side length `179 mm`
 
 Current surveyed anchor assumptions:
