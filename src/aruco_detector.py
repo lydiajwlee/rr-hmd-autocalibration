@@ -1,4 +1,5 @@
 import cv2
+import time
 import numpy as np
 from collections import deque
 
@@ -237,6 +238,7 @@ def run_webcam(
     camera_index=0,
     intrinsics_path=None,
     stop_after_detection=True,
+    timestamp_frames=False,
 ):
     """Detect an anchor/HMD pose once, or continuously in live test mode."""
     requested_size = (WEBCAM_WIDTH, WEBCAM_HEIGHT)
@@ -298,6 +300,7 @@ def run_webcam(
     try:
         while not calibrated:
             ret, frame = cap.read()
+            frame_time = time.time()
             if not ret:
                 anchor_filter.update({})
                 continue
@@ -318,7 +321,8 @@ def run_webcam(
             anchors_ready = all(i in anchor_image_corners for i in ANCHOR_IDS)
             if not calibrated and anchors_ready and hmd_T is not None:
                 last_world_pose = on_pose_detected(
-                    anchor_image_corners, hmd_T, detection_K, dist
+                    anchor_image_corners, hmd_T, detection_K, dist,
+                    **({"frame_time": frame_time} if timestamp_frames else {})
                 )
                 pose_is_valid = (
                     last_world_pose is not None

@@ -25,7 +25,7 @@ recent_positions = deque(maxlen=3)
 last_valid_time = None
 # ────────────────────────────────────────────────────────────────────────────
 
-def on_pose_detected(anchor_image_corners, hmd_T, K, dist):
+def on_pose_detected(anchor_image_corners, hmd_T, K, dist, *, frame_time=None):
     global calibration_sent, last_valid_time
 
     world_pos, quat, reprojection_error = (
@@ -38,6 +38,7 @@ def on_pose_detected(anchor_image_corners, hmd_T, K, dist):
         )
     )
 
+    frame_position = world_pos
     pose_is_valid = reprojection_error <= MAX_ANCHOR_REPROJECTION_ERROR
     should_send = CONTINUOUS_OSC_TEST or not calibration_sent
 
@@ -61,7 +62,7 @@ def on_pose_detected(anchor_image_corners, hmd_T, K, dist):
     )
 
     if pose_is_valid and should_send:
-        sender.send_pose(HMD_ID, world_pos, quat)
+        sender.send_pose(HMD_ID, world_pos, quat, frame_time, frame_position)
 
         if not calibration_sent:
             mode = "continuous test" if CONTINUOUS_OSC_TEST else "one shot"
@@ -84,6 +85,7 @@ if __name__ == "__main__":
         on_pose_detected,
         intrinsics_path=intrinsics_path,
         stop_after_detection=False,  # live joint-extrinsics display test
+        timestamp_frames=True,
     )
     # run(on_pose_detected)        # ZED streaming
     # ────────────────────────────────────────────────────────────────────────
