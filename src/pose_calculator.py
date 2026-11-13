@@ -1,5 +1,6 @@
 import cv2
 import numpy as np
+from scipy.optimize import least_squares
 from scipy.spatial.transform import Rotation
 
 # Fixed anchor world poses (Unity convention, meters)
@@ -77,14 +78,29 @@ def camera_extrinsics_from_anchors(
     if not success:
         raise RuntimeError("Joint anchor extrinsics solve failed")
 
+    # The surveyed center-to-center baseline fixes metric scale. Fit one shared
+    # printed-square size so a print margin discrepancy needn't be absorbed
+    # as camera pitch. Keep the marker centers and orientations fixed.
+    centers = np.repeat(object_points.reshape(-1, 4, 3).mean(axis=1), 4, axis=0)
+    offsets = object_points - centers
+
+    def corner_residuals(parameters):
+        corners = centers + parameters[6] * offsets
+        projected, _ = cv2.projectPoints(corners, parameters[:3], parameters[3:6], K, dist)
+        return (projected.reshape(-1, 2) - image_points).ravel()
+
+    fit = least_squares(corner_residuals, np.r_[rvec.ravel(), tvec.ravel(), 1.0])
+    if not fit.success or fit.x[6] <= 0:
+        raise RuntimeError("Joint anchor size and pose refinement failed")
+    rvec, tvec = fit.x[:3], fit.x[3:6]
+
     camera_R_world_cv, _ = cv2.Rodrigues(rvec)
     camera_T_world_cv = np.eye(4)
     camera_T_world_cv[:3, :3] = camera_R_world_cv
     camera_T_world_cv[:3, 3] = tvec.ravel()
     world_cv_T_camera = np.linalg.inv(camera_T_world_cv)
 
-    projected, _ = cv2.projectPoints(object_points, rvec, tvec, K, dist)
-    residuals = projected.reshape(-1, 2) - image_points
+    residuals = fit.fun.reshape(-1, 2)
     reprojection_error = np.sqrt(np.mean(np.sum(residuals ** 2, axis=1)))
     return world_cv_T_camera, float(reprojection_error)
 

@@ -19,6 +19,30 @@ from pose_calculator import (
 
 
 class AveragedHmdWorldPoseTests(unittest.TestCase):
+    def test_level_motion_with_print_margin_at_different_camera_placements(self):
+        K = np.array([[3380., 0., 1800.], [0., 3387., 1048.], [0., 0., 1.]])
+        dist = np.zeros(5)
+        for center, angles in [([0., -1.2, 1.8], [180, 8, 0]),
+                               ([.8, -2.8, 2.6], [170, -5, 12])]:
+            with self.subTest(center=center):
+                rotation = Rotation.from_euler("yxz", angles, degrees=True)
+                translation = -rotation.apply(center)
+                anchors = {}
+                for marker_id in (100, 101):
+                    corners, _ = cv2.projectPoints(
+                        anchor_world_corners_cv(marker_id, .1735),
+                        rotation.as_rotvec(), translation, K, dist
+                    )
+                    anchors[marker_id] = corners.reshape(4, 2)
+                for depth in (-2., 0.8):
+                    hmd = np.eye(4)
+                    hmd[:3, 3] = rotation.apply([0., -1.65, depth]) + translation
+                    position, _, error = hmd_world_pose_from_anchor_extrinsics(
+                        anchors, hmd, K, dist, .179
+                    )
+                    np.testing.assert_allclose(position, [0., 1.65, depth], atol=1e-6)
+                    self.assertLess(error, 1e-5)
+
     def test_joint_anchor_extrinsics_recovers_hmd_world_position(self):
         marker_size = 0.179
         K = np.array([
