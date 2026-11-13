@@ -1,41 +1,28 @@
 # Reality Roost HMD Autocalibration
 
-Reality Roost HMD Autocalibration aligns a physical Meta Quest headset with a
-shared Unity room. The project began as a continuous external-camera tracking
-experiment and evolved into a one-time entrance calibration: the external
-camera establishes the HMD's initial world pose, Unity places the XR Rig, and
-Quest inside-out tracking takes over.
+## Current status
 
-This README documents both the current pipeline and the earlier experimental
-pipelines preserved in Git history.
+Automatic room alignment works in Unity's `AutocalibrationTest` scene. The cube
+tracks the headset marker, and Roost Rails locks into approximate alignment
+with the physical railing. Controllers placed on the physical corners still
+show a small discrepancy in VR. Its cause and magnitude are unconfirmed.
+
+**Keep `main` as the working baseline. Develop and test further rail-alignment
+fixes only on `rail-alignment-accuracy` (`git switch rail-alignment-accuracy`).**
 
 ## Current pipeline
 
-```text
-User starts in Quest passthrough
-        ↓
-External camera detects wall anchors 100 and 101
-        ↓
-Joint solvePnP uses all eight anchor corners
-        ↓
-Invert camera_T_world to obtain world_T_camera
-        ↓
-Camera detects HMD marker 0 and solves camera_T_hmd
-        ↓
-world_T_hmd = world_T_camera @ camera_T_hmd
-        ↓
-Python sends one OSC world pose to Unity
-        ↓
-Unity places the XR Rig and exits passthrough
-        ↓
-Quest inside-out tracking takes over
-```
-
-The two anchors are not solved independently and averaged in the current
-pipeline. Their eight corners jointly constrain one camera-to-world extrinsic
-transform. The camera window reports the resulting HMD world pose and the
-joint anchor reprojection error. A pose is accepted only when that error is at
-most `2.0 px`.
+1. The webcam detects wall markers `100` and `101` and headset marker `0` in
+   the same frame.
+2. Python uses the eight wall-marker corners to estimate the camera pose.
+   It refines that pose and a shared printed-square width together, keeping
+   the surveyed anchor centers fixed. This reduced depth-dependent height drift.
+3. Python transforms the headset marker into room coordinates and streams
+   accepted poses to Unity at `/markers` on `127.0.0.1:9001`. The default
+   continuous test accepts anchor reprojection error up to `5.0 px`.
+4. Unity pairs each timestamped marker position with the XR eye pose for that
+   moment. It fits the room position, yaw, and sticker-to-eye offset, then
+   places Roost Rails once the fit passes. The cube continues tracking.
 
 ## Coordinate and marker configuration
 
@@ -100,21 +87,6 @@ the configured anchor geometry. It does not prove that the surveyed world
 positions themselves are correct; a consistent survey offset can still shift
 the final HMD pose.
 
-## User experience
-
-1. The user puts on the Quest while Unity displays passthrough.
-2. The user walks toward the entrance.
-3. The external camera waits until markers `0`, `100`, and `101` are visible in
-   the same frame.
-4. Python solves the camera extrinsics from anchors `100` and `101`.
-5. Frames with anchor reprojection error above `2.0 px` are rejected.
-6. Python transforms marker `0` into Unity world coordinates and sends the
-   accepted pose through OSC.
-7. Unity applies the pose immediately, with no lerp or slerp.
-8. Unity enables the VR scene, disables passthrough, and ignores later
-   calibration messages.
-9. Quest inside-out tracking handles all subsequent headset motion.
-
 ## Installation
 
 ```bash
@@ -134,8 +106,7 @@ From the repository root:
 python3 src/main.py
 ```
 
-The current test configuration keeps the camera window open and continuously
-updates the pose overlay, while OSC is sent only once. Press `Q` to stop.
+The webcam preview and OSC stream stay active during testing. Press `Q` to stop.
 
 The overlay contains:
 
@@ -154,7 +125,17 @@ Before testing, verify that:
 
 ## Unity integration
 
-TBD
+In `AutocalibrationTest`, the `CalibrationManager` GameObject hosts
+`OSCPoseReceiver`. Its **Roost Rails** reference identifies the prefab to place,
+and **Pose Target** identifies the marker cube. The receiver creates
+`RailRoomAlignment` in code.
+
+Start the Python sender and enter Play mode with XR floor tracking active.
+Keep all three markers visible while stepping sideways and turning your head.
+The solver starts fitting at eight distinct poses and retains up to 48. Look
+for `Roost Rails aligned. Pose fit RMS … m.` in the Unity Console. The
+`0.025 m` RMS threshold measures agreement between the webcam and XR headset
+poses. Physical corner accuracy is checked separately against the railing.
 
 ## Project structure
 
@@ -170,16 +151,13 @@ webcam_calibration/
   calibrate.py            Intrinsic calibration and resolution metadata
   intrinsics.npz          Current saved webcam calibration
 
-unity/Assets/Scripts/
-  OneShotCalibrationReceiver.cs
-  CalibrationSceneTransition.cs
+unityscripts/
+  OSCPoseReceiver.cs        OSC receiver and XR pose synchronization
+  RailRoomAlignment.cs      Rigid room alignment solver
 
 tests/
   test_pose_calculator.py Synthetic pose/extrinsics validation
   test_relative_pose.py   Historical single-anchor manual test
   test_roomspace_hmd.py   Historical room-space manual test
   test_webcam_heart.py    Basic webcam ArUco visualization
-
----
-
-README archive updated: August 4, 2026.
+```
